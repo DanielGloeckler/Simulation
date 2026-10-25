@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elektromagnetische Induktion – Magnet selbst bewegen</title>
+<style>
+  :root{
+    --bg:#eef2f7; --panel:#fff; --ink:#0f172a; --muted:#64748b;
+    --line:#e2e8f0; --accent:#2563eb; --frost:#0369a1; --frost-bg:#e0f2fe;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .app{max-width:1400px;margin:0 auto;padding:16px}
+  header h1{font-size:22px;margin:0 0 4px}
+  header p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.45;max-width:920px}
+
+  .layout{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-top:16px}
+  @media(max-width:980px){.layout{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+  .panel h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 10px;font-weight:700}
+
+  .viz{display:flex;flex-direction:column;gap:12px}
+  .sim-wrap{position:relative;border-radius:14px;overflow:hidden;height:440px;
+    background:linear-gradient(180deg,#f8fafc 0%,#eef2f7 100%);
+    border:1px solid var(--line);
+    transition:box-shadow .25s, border-color .25s}
+  .sim-wrap.frozen{
+    border-color:#bae6fd;
+    box-shadow:0 0 0 3px rgba(186,230,253,0.5), 0 4px 20px rgba(56,189,248,0.15);
+  }
+  #sim{display:block;width:100%;height:100%;touch-action:none}
+
+  /* ==== Ankreuz-Icon für B-Feldrichtung ==== */
+  .field-toggle{
+    position:absolute; top:12px; right:12px; z-index:10;
+    display:flex; align-items:center; gap:9px;
+    padding:8px 13px 8px 8px;
+    background:rgba(255,255,255,0.94);
+    backdrop-filter:blur(6px);
+    border:1.5px solid var(--line);
+    border-radius:11px;
+    font:inherit; font-size:12.5px; font-weight:600;
+    color:#334155; cursor:pointer;
+    box-shadow:0 2px 10px rgba(15,23,42,0.08);
+    transition:border-color .15s, background .15s, color .15s;
+    user-select:none;
+  }
+  .field-toggle:hover{border-color:#bfdbfe; background:#fff}
+  .field-toggle .icon-wrap{
+    position:relative; width:24px; height:24px;
+    border-radius:7px;
+    border:2px solid #cbd5e1; background:#fff;
+    display:flex; align-items:center; justify-content:center;
+    transition:.15s; flex-shrink:0;
+  }
+  .field-toggle .check{
+    font-size:15px; line-height:1;
+    color:transparent; font-weight:900;
+    transition:color .15s;
+  }
+  .field-toggle[aria-pressed="true"]{
+    border-color:var(--accent); background:#eff6ff; color:var(--accent);
+  }
+  .field-toggle[aria-pressed="true"] .icon-wrap{
+    border-color:var(--accent); background:var(--accent); transform:scale(1.02);
+  }
+  .field-toggle[aria-pressed="true"] .check{color:#fff}
+
+  /* Magnet-Richtungs-Pille */
+  .magnet-dir-pill{
+    position:absolute; pointer-events:none; opacity:0;
+    transform:translateY(-4px);
+    transition:opacity .2s, transform .2s;
+    z-index:5;
+  }
+  .magnet-dir-pill.visible{opacity:1; transform:translateY(0)}
+
+  .scope-wrap{background:#fff;border-radius:14px;padding:10px;height:180px;
+    position:relative;border:1px solid var(--line)}
+  #scope{display:block;width:100%;height:100%}
+
+  .meter{background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);
+    color:#f1f5f9;border-radius:12px;padding:14px 18px;margin-bottom:12px;
+    display:flex;justify-content:space-between;align-items:center;gap:14px}
+  .meter-left{flex:1}
+  .meter-label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:#94a3b8;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .meter-value{font-family:ui-monospace,"SF Mono",Consolas,monospace;
+    font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;
+    color:#94a3b8;transition:color .15s;margin-top:2px}
+  .meter-arrow{font-size:26px;font-weight:700;color:#475569;
+    transition:color .15s, transform .15s}
+  .frozen-tag{display:none;font-size:10.5px;
+    background:linear-gradient(135deg,#e0f2fe 0%,#bae6fd 100%);
+    color:#0369a1;padding:3px 9px;border-radius:6px;
+    font-weight:700;letter-spacing:.04em;border:1px solid #7dd3fc;
+    animation:frozenGlow 2.4s ease-in-out infinite}
+  .frozen-tag.visible{display:inline-block}
+  @keyframes frozenGlow{
+    0%,100%{box-shadow:0 0 0 0 rgba(125,211,252,0.4)}
+    50%    {box-shadow:0 0 0 5px rgba(125,211,252,0)}
+  }
+
+  .ctrl{margin-bottom:12px}
+  .ctrl:last-child{margin-bottom:0}
+  .ctrl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600}
+  .ctrl output{font-variant-numeric:tabular-nums;color:var(--accent);
+    font-weight:700;font-size:13.5px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;
+    border-radius:99px;background:linear-gradient(90deg,#bfdbfe,#dbeafe);
+    outline:none;margin:0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;
+    border-radius:50%;background:var(--accent);border:3px solid #fff;
+    box-shadow:0 1px 4px rgba(37,99,235,.5);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;
+    background:var(--accent);border:3px solid #fff;
+    box-shadow:0 1px 4px rgba(37,99,235,.5);cursor:pointer}
+
+  .mode-row{display:flex;gap:8px;margin-bottom:12px}
+  .mode-btn{flex:1;padding:9px 8px;border:1.5px solid var(--line);background:#f8fafc;
+    border-radius:9px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+    color:#334155;transition:.15s}
+  .mode-btn:hover{border-color:#bfdbfe;background:#f1f7ff}
+  .mode-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  .hint{margin-top:10px;padding:10px 12px;border-radius:9px;font-size:12.5px;
+    line-height:1.55;border:1px solid #dbeafe;background:#eff6ff;color:#1e40af;
+    min-height:86px;transition:background .2s, border-color .2s, color .2s}
+  .hint.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+  .hint.neutral{background:#f8fafc;border-color:#e2e8f0;color:#475569}
+  .hint.frozen{background:#f0f9ff;border-color:#bae6fd;color:#075985}
+
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;
+    color:var(--muted);margin-top:8px}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .dot{width:10px;height:10px;border-radius:50%}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Elektromagnetische Induktion</h1>
+    <p><strong>Ziehe den Magneten mit der Maus (oder dem Finger) durch die Spule.</strong> Wenn du den Magneten <strong>anhalten</strong> lässt, wird der letzte Zustand <strong>zur Beobachtung eingefroren</strong> (blaues Badge). Über das <strong>Ankreuz-Icon oben rechts</strong> kannst du zusätzlich die <strong>B-Feldrichtung des Magneten</strong> einblenden.</p>
+  </header>
+
+  <div class="layout">
+    <div class="viz">
+      <div class="sim-wrap" id="simWrap">
+        <canvas id="sim"></canvas>
+        <button class="field-toggle" id="fieldToggle" type="button" aria-pressed="false"
+                title="B-Feldrichtung des Magneten anzeigen">
+          <span class="icon-wrap"><span class="check">✓</span></span>
+          <span>B-Feldrichtung</span>
+        </button>
+        <!-- KORRIGIERTE PILLE: N → S (außerhalb des Magneten) -->
+        <div class="magnet-dir-pill" id="magnetPill">
+          <svg width="110" height="26" viewBox="0 0 110 26">
+            <defs>
+              <marker id="pillArrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#2563eb"/>
+              </marker>
+            </defs>
+            <text x="0" y="18" font-family="ui-sans-serif,system-ui" font-size="13" font-weight="700" fill="#2563eb">B:</text>
+            <!-- N ist rechts, S ist links. Der Pfeil zeigt von N nach S (nach links) -->
+            <text x="82" y="18" font-family="ui-sans-serif,system-ui" font-size="11" font-weight="600" fill="#2563eb">N</text>
+            <line x1="76" y1="13" x2="40" y2="13" stroke="#2563eb" stroke-width="2.5" marker-end="url(#pillArrow)"/>
+            <text x="24" y="18" font-family="ui-sans-serif,system-ui" font-size="11" font-weight="600" fill="#2563eb">S</text>
+          </svg>
+        </div>
+      </div>
+      <div class="scope-wrap"><canvas id="scope"></canvas></div>
+    </div>
+
+    <div>
+      <div class="meter">
+        <div class="meter-left">
+          <div class="meter-label">
+            Induzierte Spannung
+            <span class="frozen-tag" id="frozenTag">❄ eingefroren</span>
+          </div>
+          <div class="meter-value" id="valU">0,0 V</div>
+        </div>
+        <div class="meter-arrow" id="dirArrow">—</div>
+      </div>
+
+      <div class="panel" style="margin-bottom:12px">
+        <h2>Modus</h2>
+        <div class="mode-row">
+          <button class="mode-btn active" data-mode="manual">✋ Manuell ziehen</button>
+          <button class="mode-btn" data-mode="auto">↻ Automatisch</button>
+        </div>
+
+        <div class="ctrl">
+          <label for="turns">Windungszahl N <output id="turnsOut">100</output></label>
+          <input type="range" id="turns" min="10" max="500" step="10" value="100">
+        </div>
+        <div class="ctrl">
+          <label for="field">Magnetfeldstärke B <output id="fieldOut">1,0</output></label>
+          <input type="range" id="field" min="0.2" max="2" step="0.1" value="1">
+        </div>
+        <div class="ctrl" id="freqCtrl" style="display:none">
+          <label for="speed">Frequenz (Auto-Modus) <output id="speedOut">0,50 Hz</output></label>
+          <input type="range" id="speed" min="0.1" max="1.2" step="0.05" value="0.5">
+        </div>
+        <button class="mode-btn" id="resetBtn" style="margin-top:6px;width:100%">↺ Magnet in Startposition</button>
+      </div>
+
+      <div class="panel">
+        <h2>Was passiert?</h2>
+        <div class="hint neutral" id="hint">Der Magnet ruht – keine Flussänderung, keine Induktion.</div>
+        <div class="legend">
+          <span><span class="dot" style="background:#2563eb"></span>äußeres B-Feld (Magnet)</span>
+          <span><span class="dot" style="background:#ea580c"></span>induziertes B-Feld (Spule)</span>
+          <span><span class="dot" style="background:#dc2626"></span>Stromfluss</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   DOM
+   ========================================================= */
+const simC   = document.getElementById('sim');
+const simX   = simC.getContext('2d');
+const scopeC = document.getElementById('scope');
+const scopeX = scopeC.getContext('2d');
+const valU   = document.getElementById('valU');
+const dirArrow = document.getElementById('dirArrow');
+const hintEl = document.getElementById('hint');
+const frozenTag = document.getElementById('frozenTag');
+const fieldToggle = document.getElementById('fieldToggle');
+const magnetPill = document.getElementById('magnetPill');
+const simWrap = document.getElementById('simWrap');
+
+/* =========================================================
+   State
+   ========================================================= */
+const state = {
+  mode: 'manual',
+  turns: 100,
+  B_max: 1.0,
+  freq: 0.5,
+  elapsed: 0,
+  lastTime: performance.now(),
+  magnetX: 0,
+  prevMagnetX: 0,
+  velocity: 0,
+  voltage: 0,
+  flux: 0,
+  fluxRate: 0,
+  inducedB_dir: 0,
+  inducedB_mag: 0,
+  isFrozen: false,
+  showMagnetB: false,
+  samples: [],
+  dragging: false,
+  dragging_offset: 0,
+  scopeYMax: 1.0,
+  sigma: 90,
+  centerX: 0,
+  minX: 0,
+  maxX: 0,
+  simW: 0, simH: 0,
+  coilW: 0, coilH: 0, magW: 0, magH: 0,
+  hintArrowAlpha: 1.0,
+  scopeW: 0, scopeH: 0,
+  freezeTime: 0
+};
+
+const WINDOW = 4;
+const SCALE  = 0.00035;
+const FONT   = 'ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+const FREEZE_SPEED = 3.5;
+
+/* =========================================================
+   Canvas-Größe
+   ========================================================= */
+function resize(){
+  const dpr = window.devicePixelRatio || 1;
+
+  const r1 = simC.getBoundingClientRect();
+  state.simW = Math.max(200, r1.width);
+  state.simH = Math.max(200, r1.height);
+  simC.width  = Math.round(state.simW * dpr);
+  simC.height = Math.round(state.simH * dpr);
+  simX.setTransform(dpr,0,0,dpr,0,0);
+
+  const r2 = scopeC.getBoundingClientRect();
+  state.scopeW = Math.max(200, r2.width);
+  state.scopeH = Math.max(80,  r2.height);
+  scopeC.width  = Math.round(state.scopeW * dpr);
+  scopeC.height = Math.round(state.scopeH * dpr);
+  scopeX.setTransform(dpr,0,0,dpr,0,0);
+
+  const cx = state.simW / 2;
+  state.centerX = cx;
+  state.coilH = Math.min(200, state.simH * 0.52);
+  state.coilW = state.coilH * 0.95;
+  state.magH  = Math.max(34, state.coilH * 0.24);
+  state.magW  = state.magH * 2.6;
+
+  const margin = state.magW / 2 + 60;
+  state.minX = Math.max(margin, cx - (cx - 60));
+  state.maxX = Math.min(state.simW - margin, cx + (cx - 60));
+
+  if (state.magnetX < state.minX || state.magnetX > state.maxX){
+    state.magnetX = Math.max(state.minX, Math.min(state.maxX, state.magnetX));
+    state.prevMagnetX = state.magnetX;
+  }
+}
+new ResizeObserver(resize).observe(simC);
+new ResizeObserver(resize).observe(scopeC);
+
+/* =========================================================
+   Physik
+   ========================================================= */
+function computePhysics(dt){
+  const d  = state.magnetX - state.centerX;
+  const v  = state.velocity;
+  const s2 = state.sigma * state.sigma;
+
+  const expT = Math.exp(-(d*d) / s2);
+  state.flux     = state.B_max * expT;
+  state.fluxRate = state.B_max * (-2*d/s2) * expT * v;
+
+  const isMoving = Math.abs(v) >= FREEZE_SPEED;
+  const shouldFreeze = (state.mode === 'manual')
+                     && !isMoving
+                     && state.inducedB_dir !== 0;
+
+  if (shouldFreeze){
+    if (!state.isFrozen) state.freezeTime = state.elapsed;
+    state.isFrozen = true;
+    state.voltage  = 0;
+  } else {
+    if (state.isFrozen){
+      state.isFrozen = false;
+    }
+    const product = d * v;
+    if (Math.abs(product) < 0.5){
+      state.inducedB_dir = 0;
+      state.inducedB_mag = 0;
+    } else {
+      state.inducedB_dir = Math.sign(product);
+      state.inducedB_mag = Math.min(1, Math.abs(product) / (state.sigma * 120));
+    }
+    state.voltage = -state.turns * state.fluxRate * SCALE;
+  }
+
+  state.samples.push({ t: state.elapsed, U: state.voltage });
+  while (state.samples.length && state.samples[0].t < state.elapsed - WINDOW - 0.6){
+    state.samples.shift();
+  }
+}
+
+/* =========================================================
+   Zeichnen
+   ========================================================= */
+function drawSim(){
+  const W = state.simW, H = state.simH;
+  simX.clearRect(0, 0, W, H);
+
+  const cx = state.centerX;
+  const cy = H / 2;
+
+  drawFieldLines(state.magnetX, cy, state.magW, state.magH);
+  drawCoil(cx, cy, state.coilW, state.coilH);
+  drawFrostVignette();
+  drawCurrentArrows(cx, cy, state.coilW, state.coilH);
+  drawInducedField(cx, cy, state.coilW, state.coilH);
+  drawMagnet(state.magnetX, cy, state.magW, state.magH);
+  drawFrozenBadge(cx, cy, state.coilH);
+
+  if (state.mode === 'manual' && state.hintArrowAlpha > 0.02 &&
+      state.elapsed < 3 && !state.dragging &&
+      Math.abs(state.velocity) < 1 && !state.isFrozen){
+    drawDragHint(state.magnetX, cy, state.magH);
+  }
+
+  simX.fillStyle = '#475569';
+  simX.font = '600 12px ' + FONT;
+  simX.textAlign = 'center';
+  simX.textBaseline = 'middle';
+  simX.fillText('Spule (N = ' + state.turns + ')', cx, cy + state.coilH/2 + 26);
+
+  const pillW = 110, pillH = 26;
+  magnetPill.style.left = (state.magnetX - pillW/2) + 'px';
+  magnetPill.style.top  = (cy - state.magH/2 - pillH - 6) + 'px';
+  magnetPill.classList.toggle('visible', state.showMagnetB && !state.isFrozen);
+}
+
+function drawFrostVignette(){
+  if (!state.isFrozen) return;
+  const W = state.simW, H = state.simH;
+  const grad = simX.createRadialGradient(
+    W/2, H/2, Math.min(W, H) * 0.32,
+    W/2, H/2, Math.max(W, H) * 0.72
+  );
+  grad.addColorStop(0, 'rgba(186, 230, 253, 0)');
+  grad.addColorStop(0.7, 'rgba(186, 230, 253, 0.12)');
+  grad.addColorStop(1, 'rgba(125, 211, 252, 0.30)');
+  simX.fillStyle = grad;
+  simX.fillRect(0, 0, W, H);
+}
+
+function drawFrozenBadge(cx, cy, h){
+  if (!state.isFrozen) return;
+
+  const text = '❄  eingefroren';
+  simX.font = '700 12px ' + FONT;
+  const tw = simX.measureText(text).width;
+  const bw = tw + 28;
+  const bh = 26;
+  const bx = cx - bw/2;
+  const by = cy - h/2 - bh - 16;
+
+  simX.save();
+  simX.strokeStyle = 'rgba(125, 211, 252, 0.45)';
+  simX.lineWidth = 1.2;
+  simX.setLineDash([3, 4]);
+  simX.beginPath();
+  simX.moveTo(cx, by + bh);
+  simX.lineTo(cx, cy - h/2 - 2);
+  simX.stroke();
+  simX.restore();
+
+  simX.save();
+  const grad = simX.createLinearGradient(0, by, 0, by + bh);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+  grad.addColorStop(1, 'rgba(224, 242, 254, 0.98)');
+  simX.fillStyle = grad;
+  simX.strokeStyle = 'rgba(56, 189, 248, 0.9)';
+  simX.lineWidth = 1.5;
+  simX.shadowColor = 'rgba(56, 189, 248, 0.28)';
+  simX.shadowBlur = 12;
+
+  roundRect(simX, bx, by, bw, bh, 13);
+  simX.fill();
+  simX.stroke();
+  simX.shadowBlur = 0;
+
+  simX.fillStyle = '#0369a1';
+  simX.textAlign = 'center';
+  simX.textBaseline = 'middle';
+  simX.font = '700 12px ' + FONT;
+  simX.fillText(text, cx, by + bh/2 + 1);
+  simX.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
+  ctx.closePath();
+}
+
+function drawFieldLines(mx, my, w, h){
+  const nx = mx + w/2, ny = my;
+  const sx = mx - w/2, sy = my;
+  const showDir = state.showMagnetB;
+
+  simX.save();
+  simX.lineWidth = 1.3;
+
+  for (let k = 1; k <= 3; k++){
+    const hh = k * (h/2 + 14);
+    const alpha = 0.15 + 0.45 * Math.min(1, state.flux / state.B_max);
+    simX.strokeStyle = `rgba(37,99,235,${alpha})`;
+
+    const P0 = { x: nx, y: ny };
+    const P1 = { x: nx + w*0.7, y: ny - hh };
+    const P2 = { x: sx - w*0.7, y: sy - hh };
+    const P3 = { x: sx, y: sy };
+
+    simX.beginPath();
+    simX.moveTo(P0.x, P0.y);
+    simX.bezierCurveTo(P1.x, P1.y, P2.x, P2.y, P3.x, P3.y);
+    simX.stroke();
+    if (showDir) drawBezierArrows(P0, P1, P2, P3, alpha);
+
+    const Q0 = { x: nx, y: ny };
+    const Q1 = { x: nx + w*0.7, y: ny + hh };
+    const Q2 = { x: sx - w*0.7, y: sy + hh };
+    const Q3 = { x: sx, y: sy };
+
+    simX.beginPath();
+    simX.moveTo(Q0.x, Q0.y);
+    simX.bezierCurveTo(Q1.x, Q1.y, Q2.x, Q2.y, Q3.x, Q3.y);
+    simX.stroke();
+    if (showDir) drawBezierArrows(Q0, Q1, Q2, Q3, alpha);
+  }
+  simX.restore();
+}
+
+function drawBezierArrows(P0, P1, P2, P3, alpha){
+  const ts = [0.22, 0.5, 0.78];
+  simX.save();
+  simX.fillStyle = `rgba(37,99,235,${Math.min(1, alpha + 0.4)})`;
+
+  for (const t of ts){
+    const mt = 1 - t;
+    const bx = mt*mt*mt*P0.x + 3*mt*mt*t*P1.x + 3*mt*t*t*P2.x + t*t*t*P3.x;
+    const by = mt*mt*mt*P0.y + 3*mt*mt*t*P1.y + 3*mt*t*t*P2.y + t*t*t*P3.y;
+    const tx = 3*mt*mt*(P1.x-P0.x) + 6*mt*t*(P2.x-P1.x) + 3*t*t*(P3.x-P2.x);
+    const ty = 3*mt*mt*(P1.y-P0.y) + 6*mt*t*(P2.y-P1.y) + 3*t*t*(P3.y-P2.y);
+    const len = Math.hypot(tx, ty) || 1;
+    const ux = tx/len, uy = ty/len;
+    const px = -uy, py = ux;
+    const ah = 6.5;
+
+    simX.beginPath();
+    simX.moveTo(bx + ux*ah*0.55, by + uy*ah*0.55);
+    simX.lineTo(bx - ux*ah*0.55 + px*ah*0.55, by - uy*ah*0.55 + py*ah*0.55);
+    simX.lineTo(bx - ux*ah*0.55 - px*ah*0.55, by - uy*ah*0.55 - py*ah*0.55);
+    simX.closePath();
+    simX.fill();
+  }
+  simX.restore();
+}
+
+function drawCoil(cx, cy, w, h){
+  const ry = h/2, rx = 8;
+
+  simX.save();
+  simX.fillStyle = 'rgba(251,191,36,0.08)';
+  simX.beginPath();
+  simX.rect(cx - w/2, cy - ry, w, 2*ry);
+  simX.fill();
+
+  simX.lineWidth = 2.5;
+  simX.strokeStyle = '#b45309';
+  simX.fillStyle   = 'rgba(245,158,11,0.28)';
+  for (const ex of [cx - w/2, cx + w/2]){
+    simX.beginPath();
+    simX.ellipse(ex, cy, rx, ry, 0, 0, Math.PI*2);
+    simX.fill();
+    simX.stroke();
+  }
+
+  simX.beginPath();
+  simX.moveTo(cx - w/2, cy - ry);
+  simX.lineTo(cx + w/2, cy - ry);
+  simX.moveTo(cx - w/2, cy + ry);
+  simX.lineTo(cx + w/2, cy + ry);
+  simX.stroke();
+
+  const nT = Math.min(Math.max(4, Math.round(state.turns / 25)), 12);
+  for (let i = 1; i < nT; i++){
+    const ex = cx - w/2 + (i/nT) * w;
+
+    simX.beginPath();
+    simX.lineWidth = 1.2;
+    simX.strokeStyle = 'rgba(180,83,9,0.28)';
+    simX.ellipse(ex, cy, rx, ry, 0, Math.PI, Math.PI*2);
+    simX.stroke();
+
+    simX.beginPath();
+    simX.lineWidth = 1.8;
+    simX.strokeStyle = 'rgba(180,83,9,0.78)';
+    simX.ellipse(ex, cy, rx, ry, 0, 0, Math.PI);
+    simX.stroke();
+  }
+  simX.restore();
+}
+
+function drawCurrentArrows(cx, cy, w, h){
+  const dir = state.inducedB_dir;
+  const mag = state.inducedB_mag;
+  if (dir === 0 || mag < 0.04) return;
+
+  const ry = h/2;
+  const nT = Math.min(Math.max(4, Math.round(state.turns / 25)), 12);
+  const frozen = state.isFrozen;
+
+  simX.save();
+  simX.lineWidth = 2.4;
+  simX.lineCap = 'round';
+
+  if (frozen){
+    simX.strokeStyle = 'rgba(220, 38, 38, 0.55)';
+    simX.fillStyle   = 'rgba(220, 38, 38, 0.55)';
+    simX.shadowColor = 'rgba(220, 38, 38, 0.25)';
+    simX.shadowBlur  = 4;
+  } else {
+    const baseAlpha = 0.55 + 0.45 * Math.min(1, mag * 1.3);
+    simX.strokeStyle = `rgba(220,38,38,${baseAlpha})`;
+    simX.fillStyle   = `rgba(220,38,38,${baseAlpha})`;
+  }
+
+  for (let i = 1; i < nT; i++){
+    const ex = cx - w/2 + (i/nT) * w;
+    const py = cy + ry * 0.72;
+    const len = 12 * Math.min(1, mag * 2);
+    const x0 = ex - (dir * len) / 2;
+    const x1 = ex + (dir * len) / 2;
+
+    simX.beginPath();
+    simX.moveTo(x0, py);
+    simX.lineTo(x1, py);
+    simX.stroke();
+
+    const ah = 5.5;
+    simX.beginPath();
+    simX.moveTo(x1, py);
+    simX.lineTo(x1 - dir*ah, py - ah*0.55);
+    simX.lineTo(x1 - dir*ah, py + ah*0.55);
+    simX.closePath();
+    simX.fill();
+  }
+  simX.restore();
+}
+
+function drawInducedField(cx, cy, w, h){
+  const dir = state.inducedB_dir;
+  const mag = state.inducedB_mag;
+  if (dir === 0 || mag < 0.03) return;
+
+  const ry = h/2;
+  const py = cy - ry * 0.55;
+  const frozen = state.isFrozen;
+  const len = (w * 0.55) * Math.min(1, mag * 1.6);
+  const x0 = cx - (dir * len) / 2;
+  const x1 = cx + (dir * len) / 2;
+
+  simX.save();
+  simX.lineCap = 'round';
+
+  if (frozen){
+    simX.lineWidth = 3.0;
+    simX.strokeStyle = 'rgba(234, 88, 12, 0.75)';
+    simX.fillStyle   = 'rgba(234, 88, 12, 0.75)';
+    simX.shadowColor = 'rgba(251, 146, 60, 0.4)';
+    simX.shadowBlur  = 7;
+  } else {
+    simX.lineWidth = 3.2;
+    simX.strokeStyle = 'rgba(234, 88, 12, 0.92)';
+    simX.fillStyle   = 'rgba(234, 88, 12, 0.92)';
+  }
+
+  simX.beginPath();
+  simX.moveTo(x0, py);
+  simX.lineTo(x1, py);
+  simX.stroke();
+
+  const ah = 8;
+  simX.beginPath();
+  simX.moveTo(x1, py);
+  simX.lineTo(x1 - dir*ah, py - ah*0.6);
+  simX.lineTo(x1 - dir*ah, py + ah*0.6);
+  simX.closePath();
+  simX.fill();
+
+  simX.shadowBlur = 0;
+
+  simX.font = '600 11px ' + FONT;
+  simX.textAlign = 'center';
+  simX.textBaseline = 'alphabetic';
+  simX.fillStyle = frozen ? 'rgba(194, 65, 12, 0.85)' : 'rgba(234, 88, 12, 0.92)';
+  simX.fillText('induziertes B', cx, py - 12);
+
+  simX.restore();
+}
+
+function drawMagnet(mx, my, w, h){
+  const left = mx - w/2, top = my - h/2;
+
+  simX.save();
+  simX.fillStyle = '#1d4ed8';
+  simX.fillRect(left, top, w/2, h);
+  simX.fillStyle = '#dc2626';
+  simX.fillRect(left + w/2, top, w/2, h);
+
+  simX.strokeStyle = '#1e293b';
+  simX.lineWidth = 2;
+  simX.strokeRect(left, top, w, h);
+
+  simX.fillStyle = '#ffffff';
+  simX.font = 'bold 17px ' + FONT;
+  simX.textAlign = 'center';
+  simX.textBaseline = 'middle';
+  simX.fillText('S', left + w*0.25, my);
+  simX.fillText('N', left + w*0.75, my);
+
+  if (!state.dragging){
+    simX.strokeStyle = 'rgba(15,23,42,0.15)';
+    simX.lineWidth = 1;
+    simX.strokeRect(left + 0.5, top + 0.5, w - 1, h - 1);
+  } else {
+    simX.strokeStyle = 'rgba(37,99,235,0.5)';
+    simX.lineWidth = 2.5;
+    simX.strokeRect(left - 2, top - 2, w + 4, h + 4);
+  }
+  simX.restore();
+}
+
+function drawDragHint(mx, my, mh){
+  const a = state.hintArrowAlpha;
+  simX.save();
+  simX.globalAlpha = a;
+  simX.strokeStyle = '#2563eb';
+  simX.fillStyle   = '#2563eb';
+  simX.lineWidth = 2.5;
+  simX.lineCap = 'round';
+
+  const bx = mx, by = my - mh/2 - 16;
+  simX.beginPath(); simX.moveTo(bx - 30, by); simX.lineTo(bx + 30, by); simX.stroke();
+  simX.beginPath();
+  simX.moveTo(bx + 30, by); simX.lineTo(bx + 20, by - 7); simX.lineTo(bx + 20, by + 7);
+  simX.closePath(); simX.fill();
+  simX.beginPath();
+  simX.moveTo(bx - 30, by); simX.lineTo(bx - 20, by - 7); simX.lineTo(bx - 20, by + 7);
+  simX.closePath(); simX.fill();
+
+  simX.font = '600 12px ' + FONT;
+  simX.textAlign = 'center';
+  simX.textBaseline = 'alphabetic';
+  simX.fillText('mit der Maus ziehen', bx, by - 14);
+  simX.restore();
+}
+
+function drawScope(){
+  const W = state.scopeW, H = state.scopeH;
+  scopeX.clearRect(0, 0, W, H);
+
+  const pad = { l: 58, r: 14, t: 14, b: 24 };
+  const pw  = W - pad.l - pad.r;
+  const ph  = H - pad.t - pad.b;
+  const y0  = pad.t + ph/2;
+
+  let maxAbs = 0.05;
+  for (const s of state.samples) maxAbs = Math.max(maxAbs, Math.abs(s.U));
+  const target = niceCeil(maxAbs * 1.15);
+  state.scopeYMax += (target - state.scopeYMax) * 0.08;
+  const yMax = state.scopeYMax;
+
+  scopeX.strokeStyle = '#f1f5f9';
+  scopeX.lineWidth = 1;
+  for (let i = 0; i <= 4; i++){
+    const y = pad.t + (i/4) * ph;
+    scopeX.beginPath(); scopeX.moveTo(pad.l, y); scopeX.lineTo(pad.l + pw, y); scopeX.stroke();
+  }
+  for (let i = 0; i <= 8; i++){
+    const x = pad.l + (i/8) * pw;
+    scopeX.beginPath(); scopeX.moveTo(x, pad.t); scopeX.lineTo(x, pad.t + ph); scopeX.stroke();
+  }
+
+  scopeX.strokeStyle = '#94a3b8';
+  scopeX.lineWidth = 1.5;
+  scopeX.beginPath(); scopeX.moveTo(pad.l, pad.t); scopeX.lineTo(pad.l, pad.t + ph); scopeX.stroke();
+
+  scopeX.strokeStyle = '#cbd5e1';
+  scopeX.setLineDash([4,4]);
+  scopeX.beginPath(); scopeX.moveTo(pad.l, y0); scopeX.lineTo(pad.l + pw, y0); scopeX.stroke();
+  scopeX.setLineDash([]);
+
+  if (state.samples.length > 1){
+    const t1 = state.elapsed;
+    const t0 = t1 - WINDOW;
+
+    scopeX.strokeStyle = '#2563eb';
+    scopeX.lineWidth = 2.2;
+    scopeX.lineJoin = 'round';
+    scopeX.lineCap = 'round';
+    scopeX.beginPath();
+
+    let started = false;
+    for (const s of state.samples){
+      if (s.t < t0) continue;
+      const x = pad.l + ((s.t - t0) / WINDOW) * pw;
+      const y = y0 - (s.U / yMax) * (ph/2);
+      if (!started){ scopeX.moveTo(x, y); started = true; }
+      else scopeX.lineTo(x, y);
+    }
+    scopeX.stroke();
+  }
+
+  scopeX.fillStyle = '#64748b';
+  scopeX.font = '11px ' + FONT;
+  scopeX.textAlign = 'right';
+  scopeX.textBaseline = 'middle';
+  scopeX.fillText('+' + axisLabel(yMax),  pad.l - 6, pad.t + 6);
+  scopeX.fillText('0',                   pad.l - 6, y0);
+  scopeX.fillText('−' + axisLabel(yMax), pad.l - 6, pad.t + ph - 6);
+
+  scopeX.textAlign = 'center';
+  scopeX.textBaseline = 'alphabetic';
+  scopeX.fillText('t  (letzte ' + WINDOW + ' s)', pad.l + pw/2, H - 6);
+}
+
+function axisLabel(x){
+  const a = Math.abs(x);
+  if (a >= 10) return x.toFixed(0) + ' V';
+  if (a >= 1)  return x.toFixed(1).replace('.', ',') + ' V';
+  return (x * 1000).toFixed(0) + ' mV';
+}
+function fmtV(U){
+  const a = Math.abs(U);
+  if (a < 0.0008) return '0,0 V';
+  if (a < 1){
+    const s = (U * 1000).toFixed(0);
+    return (s.startsWith('-') ? '−' + s.slice(1) : s) + ' mV';
+  }
+  const s = U.toFixed(2).replace('.', ',');
+  return s.startsWith('-') ? '−' + s.slice(1) : s;
+}
+function niceCeil(x){
+  if (!(x > 0)) return 1;
+  const e = Math.pow(10, Math.floor(Math.log10(x)));
+  const f = x / e;
+  let n;
+  if (f <= 1) n = 1;
+  else if (f <= 2) n = 2;
+  else if (f <= 2.5) n = 2.5;
+  else if (f <= 5) n = 5;
+  else n = 10;
+  return n * e;
+}
+
+function updateHint(){
+  const dir = state.inducedB_dir;
+  const mag = state.inducedB_mag;
+  const v   = state.velocity;
+  const d   = state.magnetX - state.centerX;
+
+  if (state.isFrozen){
+    hintEl.className = 'hint frozen';
+    const fluxIncreasing = (d * v) < 0;
+    hintEl.innerHTML =
+      '<b>Magnet angehalten – Feld eingefroren.</b><br>' +
+      'Die induzierte Spannung ist jetzt <b>0</b> (keine Flussänderung). ' +
+      'Der letzte Feldzustand bleibt sichtbar: ' +
+      (fluxIncreasing
+        ? 'das induzierte B-Feld zeigte <b>gegen</b> das äußere Feld (Lenz: „Abstoßung" beim Annähern).'
+        : 'das induzierte B-Feld zeigte <b>in Richtung</b> des äußeren Feldes (Lenz: „Festhalten" beim Entfernen).') +
+      '<br>Bewege den Magneten, um wieder live zu messen.';
+    return;
+  }
+
+  if (mag < 0.03){
+    if (Math.abs(d) < state.sigma * 0.7){
+      hintEl.className = 'hint neutral';
+      hintEl.innerHTML = 'Magnet genau in der Spule: Fluss Φ ist <b>maximal</b>, aber seine <b>Änderungsrate ist null</b> → U = 0.';
+    } else {
+      hintEl.className = 'hint neutral';
+      hintEl.innerHTML = 'Magnet weit entfernt: der Fluss durch die Spule ist praktisch null.';
+    }
+    return;
+  }
+
+  const fluxIncreasing = (d * v) < 0;
+  hintEl.className = 'hint warn';
+  if (fluxIncreasing){
+    hintEl.innerHTML =
+      '<b>Fluss nimmt zu.</b> Nach <b>Lenz</b> induziert die Spule ein Feld, das der Zunahme ' +
+      '<b>entgegenwirkt</b> – der induzierte B-Pfeil zeigt <b>gegen</b> das äußere Feld. ' +
+      'Die Pfeile auf den Windungen zeigen die Stromrichtung.';
+  } else {
+    hintEl.innerHTML =
+      '<b>Fluss nimmt ab.</b> Nach <b>Lenz</b> versucht die Spule, den Fluss ' +
+      '<b>aufrechtzuerhalten</b> – der induzierte B-Pfeil zeigt <b>in dieselbe Richtung</b> wie das äußere Feld. ' +
+      'Die Stromrichtung ist jetzt umgekehrt.';
+  }
+}
+
+function updateReadout(){
+  const U = state.voltage;
+  const a = Math.abs(U);
+
+  if (state.isFrozen){
+    valU.textContent = '0,0 V';
+    valU.style.color = '#94a3b8';
+    dirArrow.textContent = '—';
+    dirArrow.style.color = '#475569';
+    frozenTag.classList.add('visible');
+    simWrap.classList.add('frozen');
+  } else {
+    valU.textContent = fmtV(U);
+    if (a < 0.01){
+      valU.style.color = '#94a3b8';
+      dirArrow.textContent = '—';
+      dirArrow.style.color = '#475569';
+    } else if (U > 0){
+      valU.style.color = '#f87171';
+      dirArrow.textContent = '→';
+      dirArrow.style.color = '#f87171';
+    } else {
+      valU.style.color = '#60a5fa';
+      dirArrow.textContent = '←';
+      dirArrow.style.color = '#60a5fa';
+    }
+    frozenTag.classList.remove('visible');
+    simWrap.classList.remove('frozen');
+  }
+}
+
+function update(){
+  const now = performance.now();
+  const dt  = Math.min((now - state.lastTime) / 1000, 0.05);
+  state.lastTime = now;
+  state.elapsed += dt;
+
+  if (state.mode === 'auto'){
+    const omega = 2 * Math.PI * state.freq;
+    const phase = omega * state.elapsed;
+    const amp = (state.maxX - state.minX) / 2;
+    const mid = (state.maxX + state.minX) / 2;
+    state.magnetX = mid + amp * Math.sin(phase);
+    state.velocity = amp * omega * Math.cos(phase);
+  } else {
+    const dx = state.magnetX - state.prevMagnetX;
+    const vInst = dx / Math.max(dt, 0.001);
+    state.velocity = state.velocity * 0.72 + vInst * 0.28;
+    if (Math.abs(state.velocity) < 1.5 && !state.dragging) state.velocity = 0;
+  }
+
+  state.prevMagnetX = state.magnetX;
+
+  computePhysics(dt);
+  drawSim();
+  drawScope();
+  updateReadout();
+  updateHint();
+
+  if (state.velocity > 5 || state.mode === 'auto' || state.elapsed > 8){
+    state.hintArrowAlpha = Math.max(0, state.hintArrowAlpha - dt * 1.5);
+  }
+
+  requestAnimationFrame(update);
+}
+
+function pointerToLocal(ev){
+  const r = simC.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}
+function isOnMagnet(p){
+  const cy = state.simH / 2;
+  return Math.abs(p.x - state.magnetX) <= state.magW/2 + 6 &&
+         Math.abs(p.y - cy)           <= state.magH/2 + 8;
+}
+
+simC.addEventListener('pointerdown', ev => {
+  if (state.mode !== 'manual') return;
+  const p = pointerToLocal(ev);
+  if (isOnMagnet(p)){
+    state.dragging = true;
+    state.dragging_offset = state.magnetX - p.x;
+    simC.setPointerCapture(ev.pointerId);
+    simC.style.cursor = 'grabbing';
+    ev.preventDefault();
+  }
+});
+
+simC.addEventListener('pointermove', ev => {
+  if (state.mode !== 'manual'){
+    simC.style.cursor = 'default';
+    return;
+  }
+  const p = pointerToLocal(ev);
+
+  if (state.dragging){
+    let nx = p.x + state.dragging_offset;
+    nx = Math.max(state.minX, Math.min(state.maxX, nx));
+    state.magnetX = nx;
+    ev.preventDefault();
+  } else {
+    simC.style.cursor = isOnMagnet(p) ? 'grab' : 'default';
+  }
+});
+
+function endDrag(){
+  state.dragging = false;
+  simC.style.cursor = 'default';
+}
+simC.addEventListener('pointerup', endDrag);
+simC.addEventListener('pointercancel', endDrag);
+simC.addEventListener('pointerleave', () => {
+  if (!state.dragging) simC.style.cursor = 'default';
+});
+
+fieldToggle.addEventListener('click', () => {
+  state.showMagnetB = !state.showMagnetB;
+  fieldToggle.setAttribute('aria-pressed', String(state.showMagnetB));
+});
+
+const turnsEl = document.getElementById('turns');
+const fieldEl = document.getElementById('field');
+const speedEl = document.getElementById('speed');
+const turnsOut = document.getElementById('turnsOut');
+const fieldOut = document.getElementById('fieldOut');
+const speedOut = document.getElementById('speedOut');
+const freqCtrl = document.getElementById('freqCtrl');
+const resetBtn = document.getElementById('resetBtn');
+
+turnsEl.addEventListener('input', e => {
+  state.turns = +e.target.value;
+  turnsOut.textContent = state.turns;
+});
+fieldEl.addEventListener('input', e => {
+  state.B_max = +e.target.value;
+  fieldOut.textContent = state.B_max.toFixed(1).replace('.', ',');
+});
+speedEl.addEventListener('input', e => {
+  state.freq = +e.target.value;
+  speedOut.textContent = state.freq.toFixed(2).replace('.', ',') + ' Hz';
+});
+
+document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.mode;
+    if (mode === state.mode) return;
+
+    document.querySelectorAll('.mode-btn[data-mode]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.mode = mode;
+    freqCtrl.style.display = mode === 'auto' ? '' : 'none';
+
+    state.isFrozen = false;
+    simWrap.classList.remove('frozen');
+
+    if (mode === 'auto'){
+      state.elapsed = 0;
+      state.samples = [];
+      state.hintArrowAlpha = 0;
+    } else {
+      state.velocity = 0;
+      state.prevMagnetX = state.magnetX;
+    }
+  });
+});
+
+resetBtn.addEventListener('click', () => {
+  state.magnetX = state.centerX - (state.maxX - state.minX) * 0.32;
+  state.prevMagnetX = state.magnetX;
+  state.velocity = 0;
+  state.samples = [];
+  state.voltage = 0;
+  state.inducedB_dir = 0;
+  state.inducedB_mag = 0;
+  state.isFrozen = false;
+  state.scopeYMax = 1.0;
+  state.elapsed = 0;
+  state.hintArrowAlpha = 1.0;
+  simWrap.classList.remove('frozen');
+});
+
+resize();
+state.magnetX = state.centerX - (state.maxX - state.minX) * 0.32;
+state.prevMagnetX = state.magnetX;
+state.lastTime = performance.now();
+requestAnimationFrame(update);
+</script>
+</body>
+</html>

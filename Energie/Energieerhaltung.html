@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Energy Skate Park – Energieerhaltung</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #000; color: #fff; overflow: hidden;
+    user-select: none;
+  }
+  .app {
+    position: relative; width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    background: #87CEEB; /* Himmelblau */
+  }
+
+  /* --- Haupt-Canvas --- */
+  #cv {
+    flex: 1; display: block; width: 100%; height: 100%;
+  }
+
+  /* --- UI Overlays --- */
+  .ui-layer {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+  .ui-interactive {
+    pointer-events: auto;
+  }
+
+  /* --- Top Left: Energy Bars --- */
+  .energy-panel {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #ccc; border-radius: 8px;
+    padding: 12px 16px; width: 160px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    color: #333;
+  }
+  .energy-title {
+    font-size: 13px; font-weight: bold; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .energy-title .dot {
+    width: 8px; height: 8px; background: #ff5722; border-radius: 50%;
+  }
+  .bars-container {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    height: 120px; border-left: 1px solid #999; border-bottom: 1px solid #999;
+    padding: 0 4px; position: relative;
+  }
+  .bar-wrapper {
+    display: flex; flex-direction: column; align-items: center;
+    width: 22%; height: 100%; justify-content: flex-end;
+  }
+  .bar {
+    width: 100%; border-radius: 2px 2px 0 0;
+    transition: height 0.05s;
+  }
+  .bar.kinetic { background: #4CAF50; }
+  .bar.potential { background: #673AB7; }
+  .bar.thermal { background: #F44336; }
+  .bar.total { background: #FFEB3B; border: 1px solid #333; }
+  .bar-label {
+    font-size: 9px; text-align: center; margin-top: 4px;
+    color: #555; font-weight: 600; line-height: 1.1;
+  }
+
+  /* --- Top Right: Controls --- */
+  .top-right {
+    position: absolute; top: 16px; right: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    align-items: flex-end;
+  }
+  .icon-group {
+    display: flex; gap: 6px; background: rgba(255,255,255,0.9);
+    padding: 4px; border-radius: 6px; border: 1px solid #aaa;
+  }
+  .icon-btn {
+    width: 36px; height: 36px; border: none; background: #f0f0f0;
+    border-radius: 4px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    color: #333;
+  }
+  .icon-btn:hover { background: #e0e0e0; }
+  .icon-btn.active { background: #2196F3; color: #fff; }
+  
+  .track-panel {
+    background: rgba(255,255,255,0.9);
+    border: 1px solid #aaa; border-radius: 8px; padding: 8px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .track-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .track-btn {
+    width: 48px; height: 36px; border: 1px solid #ccc;
+    background: #fff; border-radius: 4px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #333;
+  }
+  .track-btn:hover { border-color: #2196F3; }
+  .track-btn.active { border-color: #2196F3; background: #e3f2fd; }
+
+  .mass-slider-wrap {
+    background: rgba(255,255,255,0.9);
+    border: 1px solid #aaa; border-radius: 8px; padding: 8px 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .mass-slider-wrap input { width: 120px; }
+
+  /* --- Bottom Controls --- */
+  .bottom-bar {
+    position: absolute; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; align-items: center; gap: 16px;
+    background: rgba(255,255,255,0.9);
+    padding: 10px 20px; border-radius: 30px;
+    border: 1px solid #aaa; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .play-btn {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: none; background: #2196F3; color: #fff;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  .play-btn:hover { background: #1976D2; }
+  
+  .checkbox-wrap {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: #333; cursor: pointer; font-weight: 600;
+  }
+  .checkbox-wrap input { width: 16px; height: 16px; cursor: pointer; }
+  
+  .restart-btn {
+    padding: 8px 16px; border-radius: 20px; border: 1px solid #2196F3;
+    background: transparent; color: #2196F3; font-weight: bold;
+    cursor: pointer;
+  }
+  .restart-btn:hover { background: #e3f2fd; }
+
+</style>
+</head>
+<body>
+
+<div class="app">
+  <canvas id="cv"></canvas>
+
+  <!-- UI Overlay -->
+  <div class="ui-layer">
+    
+    <!-- Top Left: Energy Bars -->
+    <div class="energy-panel">
+      <div class="energy-title"><span class="dot"></span> Energie</div>
+      <div class="bars-container">
+        <div class="bar-wrapper">
+          <div class="bar kinetic" id="bar-ke" style="height: 0%;"></div>
+          <div class="bar-label">Kinetisch</div>
+        </div>
+        <div class="bar-wrapper">
+          <div class="bar potential" id="bar-pe" style="height: 0%;"></div>
+          <div class="bar-label">Potentiell</div>
+        </div>
+        <div class="bar-wrapper">
+          <div class="bar thermal" id="bar-thermal" style="height: 0%;"></div>
+          <div class="bar-label">Thermisch</div>
+        </div>
+        <div class="bar-wrapper">
+          <div class="bar total" id="bar-total" style="height: 0%;"></div>
+          <div class="bar-label">Gesamt</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Right: Controls -->
+    <div class="top-right ui-interactive">
+      <div class="icon-group">
+        <button class="icon-btn" id="btn-grid" title="Raster">▦</button>
+        <button class="icon-btn" id="btn-speed" title="Geschwindigkeit">⚡</button>
+      </div>
+
+      <div class="track-panel">
+        <div style="font-size:11px; font-weight:bold; color:#333; text-align:center;">Strecken</div>
+        <div class="track-grid">
+          <button class="track-btn active" data-track="halfpipe">Halfpipe</button>
+          <button class="track-btn" data-track="ramp">Rampe</button>
+          <button class="track-btn" data-track="wave">Welle</button>
+          <button class="track-btn" data-track="jump">Schanze</button>
+        </div>
+      </div>
+
+      <div class="mass-slider-wrap">
+        <span style="font-size:11px; font-weight:bold; color:#333;">Masse</span>
+        <input type="range" id="mass-slider" min="20" max="100" value="60" step="10">
+      </div>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar ui-interactive">
+      <button class="play-btn" id="btn-play">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path id="play-icon" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+        </svg>
+      </button>
+      
+      <label class="checkbox-wrap">
+        <input type="checkbox" id="chk-slow"> Zeitlupe
+      </label>
+      <label class="checkbox-wrap">
+        <input type="checkbox" id="chk-friction"> Reibung
+      </label>
+
+      <button class="restart-btn" id="btn-reset">Skater neu starten</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+
+  // --- Physik-Parameter ---
+  const G = 9.81;
+  const PX_PER_M = 45;       // Skalierung: 1 Meter = 45 Pixel
+  const GROUND_Y_OFFSET = 80; // Abstand vom unteren Rand zur y=0 Linie
+
+  let state = {
+    mass: 60,
+    playing: true,
+    slowMo: false,
+    showGrid: false,
+    showSpeed: false,
+    friction: false,
+    track: 'halfpipe',
+    x: -6, v: 0, // x in Metern, v in m/s
+    thermalEnergy: 0,
+    lastTs: 0,
+  };
+
+  let W, H, dpr;
+  let origin = { x: 0, y: 0 }; // Canvas-Koordinaten für (0,0)
+
+  // --- Strecken-Funktionen (y in Metern, x in Metern) ---
+  const TRACKS = {
+    halfpipe: {
+      name: 'Halfpipe',
+      length: 16, // von -8 bis 8
+      y: (x) => 0.08 * x * x,
+      minY: 0, maxY: 5.12,
+    },
+    ramp: {
+      name: 'Rampe',
+      length: 16,
+      y: (x) => x < 0 ? -0.4 * x : 0, // Steil links, flach rechts
+      minY: 0, maxY: 3.2,
+    },
+    wave: {
+      name: 'Welle',
+      length: 16,
+      y: (x) => 1.5 + Math.sin(x * 0.8) * 1.5 + 1.5,
+      minY: 0, maxY: 4.5,
+    },
+    jump: {
+      name: 'Schanze',
+      length: 16,
+      y: (x) => x < -2 ? 0.15 * (x + 2) * (x + 2) : (x > 2 ? 0.15 * (x - 2) * (x - 2) : 0),
+      minY: 0, maxY: 5.4,
+    }
+  };
+
+  // --- Hilfsfunktionen ---
+  function roundRect(c, x, y, w, h, r) {
+    r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  function getTrack() { return TRACKS[state.track]; }
+
+  // Welt- zu Canvas-Koordinaten
+  function toScreen(x, y) {
+    return {
+      x: origin.x + x * PX_PER_M,
+      y: origin.y - y * PX_PER_M
+    };
+  }
+
+  // --- Resize ---
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Origin setzen (untere Mitte)
+    origin.x = W / 2;
+    origin.y = H - GROUND_Y_OFFSET;
+  }
+
+  // --- Physik Update ---
+  function updatePhysics(dt) {
+    if (!state.playing) return;
+
+    const track = getTrack();
+    const currentX = state.x;
+    const currentY = track.y(currentX);
+
+    // Steigung berechnen (numerisch)
+    const eps = 0.001;
+    const dy = track.y(currentX + eps) - track.y(currentX - eps);
+    const dx = 2 * eps;
+    const slope = dy / dx;
+    const angle = Math.atan(slope);
+
+    // Energie-Erhaltung
+    // E_total = E_kin + E_pot + E_thermal = konstant
+    // Wenn wir die Startenergie kennen (an Position x_start mit v=0), können wir v berechnen.
+    // Aber wir machen es inkrementell (Euler):
+    
+    // Beschleunigung entlang der Bahn: a = -g * sin(theta)
+    // Aber wir müssen die horizontale Beschleunigung berechnen.
+    // a_x = a * cos(theta)
+    
+    let a = -G * Math.sin(angle);
+    
+    // Reibung
+    let frictionWork = 0;
+    if (state.friction) {
+      const mu = 0.08; // Reibungskoeffizient
+      const normalForce = state.mass * G * Math.cos(angle);
+      const frictionForce = mu * normalForce;
+      const frictionDecel = frictionForce / state.mass; // m/s^2
+      
+      if (Math.abs(state.v) > 0.01) {
+        const dir = Math.sign(state.v);
+        a -= dir * frictionDecel;
+        
+        // Thermische Energie akkumulieren
+        const distance = Math.abs(state.v) * dt;
+        state.thermalEnergy += frictionForce * distance;
+      }
+    }
+
+    // Geschwindigkeit aktualisieren (entlang der Bahn)
+    // Wir tracken v als Skalar (Betrag der Geschwindigkeit entlang der Bahn)
+    // Da die Bewegung 1D entlang der Kurve ist, ist v die Geschwindigkeit in x-Richtung geteilt durch cos(theta).
+    // Einfacher: Wir tracken die Energie und leiten v ab.
+    
+    const v_x = state.v;
+    const v_total = v_x / Math.cos(angle);
+    
+    // Energie-Ansatz (stabiler):
+    // E_kin = 0.5 * m * v_total^2
+    // E_pot = m * g * y
+    // E_total = E_kin + E_pot + E_thermal
+    
+    const v_x_new = state.v + a * Math.cos(angle) * dt;
+    const v_total_new = v_x_new / Math.cos(angle);
+    
+    // Neue Position
+    let newX = state.x + v_x_new * dt;
+    
+    // Kollisionsabfrage mit den Rändern
+    const bounds = track.length / 2;
+    if (newX < -bounds) {
+      newX = -bounds;
+      state.v = Math.abs(v_x_new) * 0.9; // Kleiner Energieverlust beim Anschlag
+    } else if (newX > bounds) {
+      newX = bounds;
+      state.v = -Math.abs(v_x_new) * 0.9;
+    } else {
+      state.v = v_x_new;
+    }
+
+    // Wenn die Geschwindigkeit sehr klein wird und wir am untersten Punkt sind, stoppen
+    if (Math.abs(state.v) < 0.05 && Math.abs(a * Math.cos(angle)) < 0.1) {
+      // Nur stoppen, wenn wir nicht gerade auf einer Steigung sind
+      const y = track.y(newX);
+      if (y < 0.1) { // Nah am tiefsten Punkt
+         state.v = 0;
+      }
+    }
+
+    state.x = newX;
+  }
+
+  // --- Zeichnen ---
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Himmel
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0, '#4facfe');
+    skyGrad.addColorStop(1, '#00f2fe');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Berge im Hintergrund
+    ctx.fillStyle = '#a0aab5';
+    ctx.beginPath();
+    ctx.moveTo(0, origin.y);
+    ctx.lineTo(W * 0.15, origin.y - 120);
+    ctx.lineTo(W * 0.3, origin.y - 40);
+    ctx.lineTo(W * 0.45, origin.y - 150);
+    ctx.lineTo(W * 0.6, origin.y);
+    ctx.fill();
+    
+    ctx.fillStyle = '#8e99a6';
+    ctx.beginPath();
+    ctx.moveTo(W * 0.4, origin.y);
+    ctx.lineTo(W * 0.7, origin.y - 80);
+    ctx.lineTo(W * 0.85, origin.y - 30);
+    ctx.lineTo(W, origin.y);
+    ctx.fill();
+
+    // Boden
+    ctx.fillStyle = '#8B5A2B';
+    ctx.fillRect(0, origin.y, W, H - origin.y);
+    ctx.fillStyle = '#654321';
+    ctx.fillRect(0, origin.y, W, 10);
+
+    // Raster
+    if (state.showGrid) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1;
+      for (let x = -10; x <= 10; x++) {
+        const p = toScreen(x, 0);
+        ctx.beginPath(); ctx.moveTo(p.x, 0); ctx.lineTo(p.x, origin.y); ctx.stroke();
+      }
+      for (let y = 0; y <= 8; y++) {
+        const p = toScreen(0, y);
+        if (p.y > 0) {
+          ctx.beginPath(); ctx.moveTo(0, p.y); ctx.lineTo(W, p.y); ctx.stroke();
+        }
+      }
+    }
+
+    // Strecke zeichnen
+    const track = getTrack();
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    
+    const bounds = track.length / 2;
+    const steps = 100;
+    for (let i = 0; i <= steps; i++) {
+      const x = -bounds + (2 * bounds) * (i / steps);
+      const y = track.y(x);
+      const p = toScreen(x, y);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+
+    // Schienen-Glanz
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const x = -bounds + (2 * bounds) * (i / steps);
+      const y = track.y(x);
+      const p = toScreen(x, y);
+      if (i === 0) ctx.moveTo(p.x, p.y - 3);
+      else ctx.lineTo(p.x, p.y - 3);
+    }
+    ctx.stroke();
+
+    // Skater zeichnen
+    drawSkater();
+
+    // UI Update
+    updateUI();
+  }
+
+  function drawSkater() {
+    const track = getTrack();
+    const currentY = track.y(state.x);
+    const p = toScreen(state.x, currentY);
+
+    // Steigung für Rotation
+    const eps = 0.001;
+    const dy = track.y(state.x + eps) - track.y(state.x - eps);
+    const dx = 2 * eps;
+    const angle = Math.atan2(dy * PX_PER_M, dx * PX_PER_M); // In Canvas-Skalierung
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(angle);
+
+    // Schatten
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 22, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Skateboard
+    ctx.fillStyle = '#e67e22';
+    roundRect(ctx, -18, -4, 36, 6, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#d35400';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Räder
+    ctx.fillStyle = '#2c3e50';
+    ctx.beginPath();
+    ctx.arc(-12, 4, 4, 0, Math.PI * 2);
+    ctx.arc(12, 4, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Beine
+    ctx.strokeStyle = '#2c3e50';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-5, -2);
+    ctx.lineTo(-3, -18);
+    ctx.moveTo(5, -2);
+    ctx.lineTo(3, -18);
+    ctx.stroke();
+
+    // Körper
+    const bodyGrad = ctx.createLinearGradient(-10, -35, 10, -15);
+    bodyGrad.addColorStop(0, '#3498db');
+    bodyGrad.addColorStop(1, '#2980b9');
+    ctx.fillStyle = bodyGrad;
+    roundRect(ctx, -9, -36, 18, 20, 6);
+    ctx.fill();
+
+    // Arme
+    ctx.strokeStyle = '#3498db';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-9, -28);
+    ctx.lineTo(-16, -18);
+    ctx.moveTo(9, -28);
+    ctx.lineTo(16, -18);
+    ctx.stroke();
+
+    // Kopf
+    ctx.fillStyle = '#f1c40f';
+    ctx.beginPath();
+    ctx.arc(0, -46, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Helm
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.arc(0, -47, 9, Math.PI, 0);
+    ctx.fill();
+
+    ctx.restore();
+
+    // Geschwindigkeitsanzeige
+    if (state.showSpeed) {
+      const speed = Math.abs(state.v) * 3.6; // km/h
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 70, 22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(Math.round(speed) + '', p.x, p.y - 72);
+      ctx.font = '8px sans-serif';
+      ctx.fillText('km/h', p.x, p.y - 62);
+    }
+  }
+
+  // --- UI Update ---
+  function updateUI() {
+    const track = getTrack();
+    const y = track.y(state.x);
+    const maxY = track.maxY || 5;
+    const maxE = state.mass * G * maxY;
+
+    // Kinetische Energie (v_total = v * sqrt(1 + slope^2))
+    const eps = 0.001;
+    const dy = track.y(state.x + eps) - track.y(state.x - eps);
+    const dx = 2 * eps;
+    const slope = dy / dx;
+    const v_total = state.v * Math.sqrt(1 + slope * slope);
+    
+    const ke = 0.5 * state.mass * v_total * v_total;
+    const pe = state.mass * G * y;
+    const thermal = state.thermalEnergy;
+    const total = ke + pe + thermal;
+
+    // Referenz für die Balken: Die maximale Energie, die der Skater am Start hatte.
+    // Wenn wir die Strecke wechseln, setzen wir thermal auf 0 und starten neu.
+    // Max Energie ist ungefähr m * g * maxY.
+    const refMax = Math.max(maxE, total, 1);
+
+    document.getElementById('bar-ke').style.height = (ke / refMax * 100) + '%';
+    document.getElementById('bar-pe').style.height = (pe / refMax * 100) + '%';
+    document.getElementById('bar-thermal').style.height = (thermal / refMax * 100) + '%';
+    document.getElementById('bar-total').style.height = (total / refMax * 100) + '%';
+
+    // Werte in den Labels anzeigen (optional, aber nett)
+    // document.querySelector('.bar.kinetic').title = `${Math.round(ke)} J`;
+  }
+
+  // --- Loop ---
+  function loop(ts) {
+    if (!state.lastTs) state.lastTs = ts;
+    let dt = (ts - state.lastTs) / 1000;
+    state.lastTs = ts;
+
+    // Zeitlupe
+    if (state.slowMo) dt *= 0.3;
+    
+    // Cap dt, um Sprünge zu vermeiden
+    dt = Math.min(dt, 0.05);
+
+    // Physik-Update in kleinen Schritten (für Stabilität)
+    const subSteps = 4;
+    for (let i = 0; i < subSteps; i++) {
+      updatePhysics(dt / subSteps);
+    }
+
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // --- Reset ---
+  function resetSkater() {
+    const track = getTrack();
+    state.x = -track.length / 2 + 0.5; // Start links
+    state.v = 0;
+    state.thermalEnergy = 0;
+    // Ein kleiner Anstoß, damit er losfährt
+    state.v = 0.5;
+  }
+
+  // --- Event Listeners ---
+  document.getElementById('btn-play').addEventListener('click', (e) => {
+    state.playing = !state.playing;
+    const icon = document.getElementById('play-icon');
+    if (state.playing) {
+      icon.setAttribute('d', 'M6 19h4V5H6v14zm8-14v14h4V5h-4z'); // Pause
+    } else {
+      icon.setAttribute('d', 'M8 5v14l11-7z'); // Play
+    }
+  });
+
+  document.getElementById('chk-slow').addEventListener('change', (e) => {
+    state.slowMo = e.target.checked;
+  });
+
+  document.getElementById('chk-friction').addEventListener('change', (e) => {
+    state.friction = e.target.checked;
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', resetSkater);
+
+  document.getElementById('btn-grid').addEventListener('click', (e) => {
+    state.showGrid = !state.showGrid;
+    e.currentTarget.classList.toggle('active', state.showGrid);
+  });
+
+  document.getElementById('btn-speed').addEventListener('click', (e) => {
+    state.showSpeed = !state.showSpeed;
+    e.currentTarget.classList.toggle('active', state.showSpeed);
+  });
+
+  document.getElementById('mass-slider').addEventListener('input', (e) => {
+    state.mass = parseInt(e.target.value);
+    // Wenn die Masse geändert wird, setzen wir die thermische Energie zurück,
+    // um konsistente Verhältnisse zu haben.
+    state.thermalEnergy = 0;
+  });
+
+  document.querySelectorAll('.track-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.track-btn').forEach(b => b.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+      state.track = e.currentTarget.dataset.track;
+      resetSkater();
+    });
+  });
+
+  // --- Start ---
+  const ro = new ResizeObserver(() => resize());
+  ro.observe(canvas.parentElement);
+
+  resize();
+  resetSkater();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

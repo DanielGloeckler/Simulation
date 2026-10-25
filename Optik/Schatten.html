@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schattenräume – Kernschatten &amp; Halbschatten</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:#0e1520;color:#e6edf7;overflow:hidden;
+  }
+  .app{display:flex;height:100vh;height:100dvh}
+
+  /* ---------- Bühne ---------- */
+  .stage{position:relative;flex:1;min-width:0;background:#0e1520}
+  #cv{
+    position:absolute;left:12px;top:12px;border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.45);
+    touch-action:none;cursor:default;
+  }
+
+  /* ---------- Panel ---------- */
+  .panel{
+    width:334px;flex:none;background:#131c2b;border-left:1px solid #22304a;
+    padding:20px 18px 28px;overflow-y:auto;
+  }
+  .panel h1{font-size:19px;margin:0 0 4px;letter-spacing:.2px}
+  .panel .sub{margin:0 0 20px;font-size:12.5px;color:#8fa3bf;line-height:1.45}
+
+  .group{margin-bottom:18px}
+
+  .label{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:12px;font-weight:700;color:#9db0ca;
+    text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;
+  }
+  .label output{
+    font-weight:700;color:#ffd166;text-transform:none;letter-spacing:0;font-size:13px;
+  }
+
+  .segmented{
+    display:flex;gap:6px;background:#0e1622;border-radius:10px;padding:4px;
+    border:1px solid #22304a;
+  }
+  .segmented button{
+    flex:1;padding:8px 6px;border:0;border-radius:7px;background:transparent;
+    color:#9db0ca;font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .segmented button.active{background:#2b6cff;color:#fff;box-shadow:0 2px 8px rgba(43,108,255,.45)}
+  .segmented button:not(.active):hover{background:#1a2637;color:#cfe0f5}
+
+  input[type=range]{
+    width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;
+    background:#22304a;outline:none;display:block;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+    background:#ffd166;border:2px solid #0e1622;cursor:pointer;
+    box-shadow:0 0 0 1px #ffd166;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;background:#ffd166;
+    border:2px solid #0e1622;cursor:pointer;
+  }
+  input[type=range]:disabled{opacity:.3}
+
+  .check{
+    display:flex;align-items:center;gap:9px;font-size:13.5px;color:#c2d1e4;
+    padding:6px 0;cursor:pointer;user-select:none;
+  }
+  .check input{width:16px;height:16px;accent-color:#2b6cff;cursor:pointer}
+
+  .readouts{background:#0e1622;border:1px solid #22304a;border-radius:12px;padding:12px 14px}
+  .ro{display:flex;align-items:center;gap:9px;font-size:13px;color:#a9bcd4;padding:4px 0}
+  .ro b{margin-left:auto;color:#fff;font-variant-numeric:tabular-nums;font-weight:700}
+  .dot{width:12px;height:12px;border-radius:3px;flex:none}
+  .dot.umbra{background:#141d2b;box-shadow:inset 0 0 0 1px #3a4b63}
+  .dot.penumbra{background:rgba(255,170,40,.55)}
+  .dot.total{background:rgba(120,140,170,.6)}
+
+  .tip{
+    font-size:13px;line-height:1.5;color:#a9bcd4;background:#0e1622;
+    border-left:3px solid #ffd166;border-radius:0 8px 8px 0;
+    padding:10px 12px;margin:0;min-height:44px;
+  }
+
+  .btn{
+    width:100%;padding:11px;border-radius:10px;border:1px solid #2b3d5a;
+    background:#1a2637;color:#cfe0f5;font:inherit;font-weight:600;font-size:13.5px;
+    cursor:pointer;transition:background .15s;
+  }
+  .btn:hover{background:#22304a}
+
+  .hint{font-size:12px;color:#6f83a0;line-height:1.5;margin:16px 0 0}
+
+  @media (max-width:880px){
+    body{overflow:auto}
+    .app{flex-direction:column;height:auto;min-height:100dvh}
+    .stage{height:58vh;min-height:320px}
+    .panel{width:auto;border-left:0;border-top:1px solid #22304a}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+  </div>
+
+  <aside class="panel">
+    <h1>Schattenräume</h1>
+    <p class="sub">Kernschatten &amp; Halbschatten im Lichtstrahlmodell – mit Punktlichtquelle und ausgedehnter Lichtquelle (Taschenlampe).</p>
+
+    <section class="group">
+      <div class="label">Lichtquelle</div>
+      <div class="segmented">
+        <button type="button" data-mode="point">Punktlicht</button>
+        <button type="button" data-mode="extended" class="active">Ausgedehnt</button>
+      </div>
+    </section>
+
+    <section class="group">
+      <div class="label">Gegenstand</div>
+      <div class="segmented">
+        <button type="button" data-obj="sphere" class="active">Kugel</button>
+        <button type="button" data-obj="cylinder">Zylinder</button>
+        <button type="button" data-obj="box">Quader</button>
+      </div>
+    </section>
+
+    <section class="group">
+      <label class="label" for="sizeRange">Höhe des Gegenstands <output id="heightVal">8,0 cm</output></label>
+      <input type="range" id="sizeRange" min="1" max="30" step="0.5" value="8">
+    </section>
+
+    <section class="group">
+      <label class="label" for="lightSizeRange">Größe der Lampe <output id="lightSizeVal">10,0 cm</output></label>
+      <input type="range" id="lightSizeRange" min="0" max="30" step="0.5" value="10">
+    </section>
+
+    <section class="group">
+      <label class="check"><input type="checkbox" id="chkRays" checked> Randstrahlen zeigen</label>
+      <label class="check"><input type="checkbox" id="chkRegions" checked> Schattenräume färben</label>
+    </section>
+
+    <section class="group readouts">
+      <div class="ro"><span class="dot umbra"></span>Kernschatten <b id="roUmbra">–</b></div>
+      <div class="ro"><span class="dot penumbra"></span>Halbschatten <b id="roPenumbra">–</b></div>
+      <div class="ro"><span class="dot total"></span>Gesamtschatten <b id="roTotal">–</b></div>
+    </section>
+
+    <section class="group">
+      <p class="tip" id="tip"></p>
+    </section>
+
+    <section class="group">
+      <button type="button" class="btn" id="reset">Zurücksetzen</button>
+    </section>
+
+    <p class="hint">Lampe, Gegenstand und Schirm lassen sich mit Maus oder Finger ziehen. Der Schirm zeigt das Schattenbild.</p>
+  </aside>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const stage = document.getElementById('stage');
+  const cv    = document.getElementById('cv');
+  const ctx   = cv.getContext('2d');
+
+  let W = 800, H = 500, PX = 8;
+
+  const DEFAULT = {
+    lightXf: 0.15, lightYf: 0.50,
+    objXf:   0.45, objYf:   0.50,
+    screenXf:0.87,
+    sourceSize: 10,
+    objHeight:  8,
+    extended: true,
+    objType: 'sphere',
+    showRays: true,
+    showRegions: true
+  };
+  const state = Object.assign({}, DEFAULT);
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const fmt   = v => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
+  const toCm  = px => px / PX;
+
+  /* ------------------------------------------------------------------ */
+  /*  Geometrie                                                          */
+  /* ------------------------------------------------------------------ */
+  function geo() {
+    const lx = state.lightXf * W, ly = state.lightYf * H;
+    const S  = state.extended ? (state.sourceSize * PX) / 2 : 0;
+    const ox = state.objXf * W,  oy = state.objYf * H;
+    const hh = Math.max((state.objHeight * PX) / 2, 3);
+    const sx = state.screenXf * W;
+
+    const R = (sx - lx) / Math.max(ox - lx, 1);
+
+    const ysMin = ly - S, ysMax = ly + S;
+    const A = (ys, r) => ys * (1 - r) + (oy - hh) * r;
+    const B = (ys, r) => ys * (1 - r) + (oy + hh) * r;
+
+    const uT = A(ysMin, R);
+    const uB = B(ysMax, R);
+    const aT = A(ysMax, R);
+    const aB = B(ysMin, R);
+
+    const rEnd = (S > hh + 1e-6) ? S / (S - hh) : Infinity;
+    const umbraOnScreen = rEnd >= R;
+
+    return { lx, ly, S, ox, oy, hh, sx, R, ysMin, ysMax, A, B,
+             uT, uB, aT, aB, rEnd, umbraOnScreen };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Zeichnen                                                           */
+  /* ------------------------------------------------------------------ */
+  function roundRect(c, x, y, w, h, r) {
+    r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  function label(text, x, y) {
+    ctx.font = '600 12px system-ui,-apple-system,"Segoe UI",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = '#4b5c74';
+    ctx.fillText(text, x, y);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Taschenlampe zeichnen                                              */
+  /* ------------------------------------------------------------------ */
+  function drawLight(lx, ly, S) {
+    ctx.save();
+
+    // 1. Weicher Lichtkegel (Glow)
+    const glowR = Math.max(120, S * 4);
+    const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, glowR);
+    g.addColorStop(0,    'rgba(255,220,100,.35)');
+    g.addColorStop(0.3,  'rgba(255,200,80,.12)');
+    g.addColorStop(1,    'rgba(255,200,80,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(lx, ly, glowR, 0, Math.PI * 2); ctx.fill();
+
+    // 2. Taschenlampen-Gehäuse (Korpus)
+    const bodyW = 36;
+    const bodyH = S > 0 ? Math.max(S * 2 + 8, 24) : 20;
+    const bodyX = lx - bodyW - 8;
+    const bodyY = ly - bodyH / 2;
+
+    // Korpus-Hintergrund
+    const bodyGrad = ctx.createLinearGradient(bodyX, bodyY, bodyX, bodyY + bodyH);
+    bodyGrad.addColorStop(0, '#475569');
+    bodyGrad.addColorStop(0.5, '#1e293b');
+    bodyGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = bodyGrad;
+    roundRect(ctx, bodyX, bodyY, bodyW, bodyH, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Riffelung am Griff
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    for(let i=0; i<5; i++) {
+      ctx.fillRect(bodyX + 6 + i*5, bodyY + 4, 2, bodyH - 8);
+    }
+
+    // 3. Lampenkopf (Vorderseite)
+    const headW = 12;
+    const headH = S > 0 ? S * 2 + 6 : 14;
+    const headX = lx - headW;
+    const headY = ly - headH / 2;
+
+    const headGrad = ctx.createLinearGradient(headX, headY, headX, headY + headH);
+    headGrad.addColorStop(0, '#64748b');
+    headGrad.addColorStop(0.5, '#334155');
+    headGrad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = headGrad;
+    roundRect(ctx, headX, headY, headW, headH, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 4. Leuchtendes Element (Linse)
+    if (S > 2) {
+      // Ausgedehnte Quelle (länglicher Leuchtstab)
+      const lensGrad = ctx.createLinearGradient(lx - 4, 0, lx + 4, 0);
+      lensGrad.addColorStop(0,   '#f59e0b');
+      lensGrad.addColorStop(0.5, '#fef08a');
+      lensGrad.addColorStop(1,   '#f59e0b');
+      ctx.fillStyle = lensGrad;
+      roundRect(ctx, lx - 4, ly - S, 8, 2 * S, 4);
+      ctx.fill();
+      
+      // Glanzstreifen auf der Linse
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      roundRect(ctx, lx - 2, ly - S + 2, 2, 2 * S - 4, 1);
+      ctx.fill();
+    } else {
+      // Punktquelle (kleiner heller Punkt)
+      ctx.beginPath(); ctx.arc(lx, ly, 8, 0, Math.PI * 2);
+      const lensGrad = ctx.createRadialGradient(lx - 2, ly - 2, 1, lx, ly, 9);
+      lensGrad.addColorStop(0, '#ffffff');
+      lensGrad.addColorStop(0.4, '#fef08a');
+      lensGrad.addColorStop(1, '#f59e0b');
+      ctx.fillStyle = lensGrad;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(245,158,11,.8)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Gegenstände zeichnen (mit 3D-Effekt)                               */
+  /* ------------------------------------------------------------------ */
+  function drawObject(ox, oy, hh) {
+    ctx.save();
+    const w = 20; // Breite des Gegenstands
+
+    // Boden-Schlagschatten (weich)
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(ox, oy + hh - 2, w * 0.8, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (state.objType === 'sphere') {
+      const r = hh;
+      
+      // Kugel-Hauptkörper mit 3D-Radialverlauf
+      const grad = ctx.createRadialGradient(ox - r*0.4, oy - r*0.4, r*0.1, ox, oy, r);
+      grad.addColorStop(0, '#f8fafc');
+      grad.addColorStop(0.2, '#e2e8f0');
+      grad.addColorStop(0.7, '#94a3b8');
+      grad.addColorStop(1, '#475569');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(ox, oy, r, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Glanzlicht (Specular Highlight)
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath();
+      ctx.ellipse(ox - r*0.4, oy - r*0.4, r*0.15, r*0.1, -Math.PI/4, 0, Math.PI*2);
+      ctx.fill();
+
+      // Fussball-Muster (dezente dunkle Flecken)
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+      for(let i=0; i<6; i++){
+        const a = i * (Math.PI*2/6) - Math.PI/2;
+        const px = ox + Math.cos(a) * r * 0.55;
+        const py = oy + Math.sin(a) * r * 0.55;
+        ctx.beginPath();
+        ctx.arc(px, py, r*0.12, 0, Math.PI*2);
+        ctx.fill();
+      }
+      
+    } else if (state.objType === 'cylinder') {
+      // Zylinder-Hauptkörper
+      const grad = ctx.createLinearGradient(ox - w/2, 0, ox + w/2, 0);
+      grad.addColorStop(0, '#475569');
+      grad.addColorStop(0.25, '#cbd5e1');
+      grad.addColorStop(0.6, '#94a3b8');
+      grad.addColorStop(1, '#1e293b');
+      ctx.fillStyle = grad;
+      roundRect(ctx, ox - w/2, oy - hh, w, 2*hh, 2);
+      ctx.fill();
+      
+      // Deckel oben (Ellipse)
+      const topGrad = ctx.createLinearGradient(ox - w/2, 0, ox + w/2, 0);
+      topGrad.addColorStop(0, '#94a3b8');
+      topGrad.addColorStop(0.5, '#e2e8f0');
+      topGrad.addColorStop(1, '#64748b');
+      ctx.fillStyle = topGrad;
+      ctx.beginPath();
+      ctx.ellipse(ox, oy - hh, w/2, 4, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      // Boden unten (Ellipse)
+      ctx.fillStyle = '#334155';
+      ctx.beginPath();
+      ctx.ellipse(ox, oy + hh, w/2, 4, 0, 0, Math.PI*2);
+      ctx.fill();
+
+    } else if (state.objType === 'box') {
+      // Quader mit 3D-Perspektive (Iso-Ansicht)
+      const dx = 6, dy = -6; // Tiefenversatz für 3D-Effekt
+
+      // Vorderseite
+      const frontGrad = ctx.createLinearGradient(ox - w/2, 0, ox + w/2, 0);
+      frontGrad.addColorStop(0, '#94a3b8');
+      frontGrad.addColorStop(0.4, '#e2e8f0');
+      frontGrad.addColorStop(1, '#64748b');
+      ctx.fillStyle = frontGrad;
+      roundRect(ctx, ox - w/2, oy - hh, w, 2*hh, 2);
+      ctx.fill();
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Oberseite (Parallelogramm)
+      ctx.fillStyle = '#f1f5f9';
+      ctx.beginPath();
+      ctx.moveTo(ox - w/2, oy - hh);
+      ctx.lineTo(ox - w/2 + dx, oy - hh + dy);
+      ctx.lineTo(ox + w/2 + dx, oy - hh + dy);
+      ctx.lineTo(ox + w/2, oy - hh);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Rechte Seite (Parallelogramm)
+      ctx.fillStyle = '#475569';
+      ctx.beginPath();
+      ctx.moveTo(ox + w/2, oy - hh);
+      ctx.lineTo(ox + w/2 + dx, oy - hh + dy);
+      ctx.lineTo(ox + w/2 + dx, oy + hh + dy);
+      ctx.lineTo(ox + w/2, oy + hh);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Kante zwischen Vorder- und Oberseite
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(ox - w/2, oy - hh);
+      ctx.lineTo(ox + w/2, oy - hh);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawScreen(sx, aT, aB, uT, uB, umbraOnScreen) {
+    const w = 16, top = 10, bot = H - 10;
+    ctx.save();
+
+    // Schirm-Hintergrund
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 2;
+    roundRect(ctx, sx, top, w, bot - top, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    // Schatten auf dem Schirm
+    ctx.save();
+    roundRect(ctx, sx, top, w, bot - top, 4);
+    ctx.clip();
+
+    // Halbschatten
+    ctx.fillStyle = 'rgba(100, 116, 139, 0.5)';
+    ctx.fillRect(sx, aT, w, Math.max(0, aB - aT));
+
+    // Kernschatten
+    if (umbraOnScreen) {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(sx, uT, w, Math.max(0, uB - uT));
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+
+  function draw() {
+    const G = geo();
+    const { lx, ly, S, ox, oy, hh, sx, R, ysMin, ysMax, uT, uB, aT, aB,
+            rEnd, umbraOnScreen } = G;
+
+    /* ---- Hintergrund ---- */
+    ctx.clearRect(0, 0, W, H);
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#f8fafc');
+    bg.addColorStop(1, '#e2e8f0');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    /* ---- Raster (5 cm) ---- */
+    ctx.save();
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+    ctx.lineWidth = 1;
+    const gp = 5 * PX;
+    ctx.beginPath();
+    for (let x = gp; x < W; x += gp) { ctx.moveTo(Math.round(x) + .5, 0); ctx.lineTo(Math.round(x) + .5, H); }
+    for (let y = gp; y < H; y += gp) { ctx.moveTo(0, Math.round(y) + .5); ctx.lineTo(W, Math.round(y) + .5); }
+    ctx.stroke();
+    ctx.restore();
+
+    /* ---- Schattenräume ---- */
+    if (state.showRegions) {
+      // Halbschatten / Gesamtschatten
+      ctx.beginPath();
+      ctx.moveTo(ox, oy - hh);
+      ctx.lineTo(sx, aT);
+      ctx.lineTo(sx, aB);
+      ctx.lineTo(ox, oy + hh);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
+      ctx.fill();
+
+      // Kernschatten
+      ctx.beginPath();
+      ctx.moveTo(ox, oy - hh);
+      if (umbraOnScreen) {
+        ctx.lineTo(sx, uT);
+        ctx.lineTo(sx, uB);
+      } else {
+        ctx.lineTo(lx + rEnd * (ox - lx), G.A(ysMin, rEnd));
+      }
+      ctx.lineTo(ox, oy + hh);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+      ctx.fill();
+    }
+
+    /* ---- Schirm ---- */
+    drawScreen(sx, aT, aB, uT, uB, umbraOnScreen);
+
+    /* ---- Lichtkegel & Randstrahlen ---- */
+    if (state.showRays) {
+      ctx.save();
+      
+      // Sanfter Lichtkegel (vom Objekt zum Schirm)
+      ctx.beginPath();
+      ctx.moveTo(ox, oy - hh);
+      ctx.lineTo(sx, aT);
+      ctx.lineTo(sx, aB);
+      ctx.lineTo(ox, oy + hh);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255, 230, 150, 0.15)';
+      ctx.fill();
+
+      // Randstrahlen (Präzise Linien)
+      ctx.strokeStyle = 'rgba(234, 179, 8, 0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]); // Gestrichelt für bessere Sichtbarkeit
+      
+      const rays = [
+        [ysMin, oy - hh], [ysMax, oy - hh],
+        [ysMin, oy + hh], [ysMax, oy + hh]
+      ];
+      for (const [y0, y1] of rays) {
+        const yEnd = y0 + (y1 - y0) * R;
+        ctx.beginPath();
+        ctx.moveTo(lx, y0);
+        ctx.lineTo(ox, y1);
+        ctx.lineTo(sx, yEnd);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    /* ---- Lampe & Gegenstand ---- */
+    drawLight(lx, ly, S);
+    drawObject(ox, oy, hh);
+
+    /* ---- Beschriftung ---- */
+    label('Lichtquelle', lx, Math.max(16, ly - Math.max(S, 12) - 24));
+    label('Gegenstand',  ox, Math.max(16, oy - hh - 18));
+    label('Schirm',      sx + 8, 28);
+
+    /* ---- Messwerte ---- */
+    const totalPx  = Math.max(0, aB - aT);
+    const umbraPx  = umbraOnScreen ? Math.max(0, uB - uT) : 0;
+    const penPx    = Math.max(0, totalPx - umbraPx);
+
+    document.getElementById('roUmbra').textContent    = fmt(toCm(umbraPx)) + ' cm';
+    document.getElementById('roPenumbra').textContent = fmt(toCm(penPx))   + ' cm';
+    document.getElementById('roTotal').textContent    = fmt(toCm(totalPx)) + ' cm';
+
+    /* ---- Tipp ---- */
+    let tip;
+    if (!state.extended || state.sourceSize < 0.5) {
+      tip = 'Eine Punktlichtquelle erzeugt nur einen Kernschatten – einen Halbschatten gibt es nicht.';
+    } else if (S > hh) {
+      const xe = lx + rEnd * (ox - lx);
+      tip = 'Die Lampe ist höher als der Gegenstand: Der Kernschatten endet ' +
+            fmt(toCm(xe - ox)) + ' cm hinter dem Gegenstand.';
+      if (rEnd < R) tip += ' Auf dem Schirm ist nur noch Halbschatten zu sehen.';
+    } else {
+      tip = 'Die Lampe ist schmaler als der Gegenstand: Der Kernschatten reicht bis zum Schirm.';
+    }
+    document.getElementById('tip').textContent = tip;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Größe / Layout                                                     */
+  /* ------------------------------------------------------------------ */
+  function resize() {
+    const w = stage.clientWidth  - 24;
+    const h = stage.clientHeight - 24;
+    W = Math.max(300, w);
+    H = Math.max(240, h);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width  = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    cv.style.width  = W + 'px';
+    cv.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    PX = W / 100;
+    clampState();
+    draw();
+  }
+
+  function clampState() {
+    state.lightXf  = clamp(state.lightXf,  0.02, state.objXf - 0.06);
+    state.objXf    = clamp(state.objXf,    state.lightXf + 0.06, state.screenXf - 0.05);
+    state.screenXf = clamp(state.screenXf, state.objXf + 0.05, 0.955);
+    state.lightYf  = clamp(state.lightYf,  0.06, 0.94);
+    state.objYf    = clamp(state.objYf,    0.06, 0.94);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Maus- / Touch-Interaktion                                          */
+  /* ------------------------------------------------------------------ */
+  let drag = null;
+
+  function localPos(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  function hitTest(x, y) {
+    const lx = state.lightXf * W, ly = state.lightYf * H;
+    const ox = state.objXf * W,   oy = state.objYf * H;
+    const hh = Math.max(state.objHeight * PX / 2, 3);
+    const sx = state.screenXf * W;
+    const S  = state.extended ? (state.sourceSize * PX) / 2 : 0;
+
+    if (Math.abs(x - sx) < 12) return 'screen';
+    if (Math.abs(x - ox) < 20 && Math.abs(y - oy) < hh + 12) return 'object';
+    
+    // Taschenlampen-Hitbox (etwas breiter, da der Korpus nach links ragt)
+    if (x > lx - 60 && x < lx + 15 && Math.abs(y - ly) < Math.max(S, 12) + 16) return 'light';
+    return null;
+  }
+
+  cv.addEventListener('pointerdown', e => {
+    const { x, y } = localPos(e);
+    const hit = hitTest(x, y);
+    if (!hit) return;
+    drag = hit;
+    cv.setPointerCapture(e.pointerId);
+    cv.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  cv.addEventListener('pointermove', e => {
+    const { x, y } = localPos(e);
+
+    if (!drag) {
+      const hit = hitTest(x, y);
+      cv.style.cursor = hit === 'screen' ? 'ew-resize'
+                      : hit ? 'grab' : 'default';
+      return;
+    }
+
+    if (drag === 'light') {
+      state.lightXf = clamp(x / W, 0.02, state.objXf - 0.06);
+      state.lightYf = clamp(y / H, 0.06, 0.94);
+    } else if (drag === 'object') {
+      state.objXf = clamp(x / W, state.lightXf + 0.06, state.screenXf - 0.05);
+      state.objYf = clamp(y / H, 0.06, 0.94);
+    } else if (drag === 'screen') {
+      state.screenXf = clamp(x / W, state.objXf + 0.05, 0.955);
+    }
+    draw();
+  });
+
+  function endDrag(e) {
+    if (!drag) return;
+    drag = null;
+    cv.style.cursor = 'default';
+    if (e && e.pointerId !== undefined && cv.hasPointerCapture(e.pointerId)) {
+      cv.releasePointerCapture(e.pointerId);
+    }
+  }
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', endDrag);
+
+  /* ------------------------------------------------------------------ */
+  /*  Bedienelemente                                                     */
+  /* ------------------------------------------------------------------ */
+  const sizeRange      = document.getElementById('sizeRange');
+  const lightSizeRange = document.getElementById('lightSizeRange');
+  const chkRays        = document.getElementById('chkRays');
+  const chkRegions     = document.getElementById('chkRegions');
+
+  function syncUI() {
+    document.querySelectorAll('[data-mode]').forEach(b => {
+      b.classList.toggle('active', (b.dataset.mode === 'extended') === state.extended);
+    });
+    lightSizeRange.disabled = !state.extended;
+    document.getElementById('lightSizeVal').textContent =
+      state.extended ? fmt(state.sourceSize) + ' cm' : 'Punkt';
+    document.getElementById('heightVal').textContent = fmt(state.objHeight) + ' cm';
+    chkRays.checked    = state.showRays;
+    chkRegions.checked = state.showRegions;
+
+    document.querySelectorAll('[data-obj]').forEach(b => {
+      b.classList.toggle('active', b.dataset.obj === state.objType);
+    });
+  }
+
+  document.querySelectorAll('[data-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.extended = btn.dataset.mode === 'extended';
+      syncUI();
+      draw();
+    });
+  });
+
+  document.querySelectorAll('[data-obj]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.objType = btn.dataset.obj;
+      syncUI();
+      draw();
+    });
+  });
+
+  sizeRange.addEventListener('input', () => {
+    state.objHeight = parseFloat(sizeRange.value);
+    syncUI(); draw();
+  });
+
+  lightSizeRange.addEventListener('input', () => {
+    state.sourceSize = parseFloat(lightSizeRange.value);
+    syncUI(); draw();
+  });
+
+  chkRays.addEventListener('change', () => {
+    state.showRays = chkRays.checked; draw();
+  });
+
+  chkRegions.addEventListener('change', () => {
+    state.showRegions = chkRegions.checked; draw();
+  });
+
+  document.getElementById('reset').addEventListener('click', () => {
+    Object.assign(state, DEFAULT);
+    sizeRange.value      = DEFAULT.objHeight;
+    lightSizeRange.value = DEFAULT.sourceSize;
+    syncUI();
+    clampState();
+    draw();
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  Start                                                              */
+  /* ------------------------------------------------------------------ */
+  const ro = new ResizeObserver(() => resize());
+  ro.observe(stage);
+
+  syncUI();
+  resize();
+})();
+</script>
+</body>
+</html>
