@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treibhauseffekt – Strahlungsbilanz (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1050px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1050px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/620;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:230px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:74px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.85rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.warm{color:var(--warm)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Treibhauseffekt – <span>Strahlungsbilanz der Erde</span></h1>
+  <p class="subtitle">Ein-Schicht-Atmosphärenmodell · Gleichgewichtstemperatur</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Strahlungsbilanz der Erde mit Atmosphäre"></canvas>
+
+    <div class="controls">
+      <label>Albedo α (Rückstrahlung) <input id="albedo" type="range" min="0.05" max="0.6" step="0.01" value="0.3"><output id="albedoV">0,30</output></label>
+      <label>Treibhauswirkung ε <input id="eps" type="range" min="0" max="1" step="0.01" value="0.77"><output id="epsV">0,77</output></label>
+    </div>
+
+    <div class="controls">
+      <button data-preset="none">ohne Treibhaus</button>
+      <button data-preset="weak">schwach</button>
+      <button data-preset="today">heute (Modell)</button>
+      <button data-preset="strong">stark</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Oberflächentemperatur T<sub>s</sub></div><div class="v warm" id="rTs">–</div></div>
+      <div><div class="k">Atmosphärentemperatur T<sub>a</sub></div><div class="v" id="rTa">–</div></div>
+      <div><div class="k">absorbierte Sonnenstrahlung</div><div class="v" id="rIn">–</div></div>
+      <div><div class="k">Ausstrahlung ins All</div><div class="v" id="rOut">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Modell:</b> Die Erde absorbierte global gemittelt (1−α)·S/4 der Sonnenstrahlung. Die Atmosphäre lässt
+      kurzwelliges Sonnenlicht weitgehend durch, absorbiert aber den Anteil ε der langwelligen Wärmestrahlung der
+      Oberfläche und strahlt ihn je zur Hälfte nach oben und unten ab. Im Gleichgewicht gilt
+      σ·T<sub>s</sub>⁴·(1−ε/2) = (1−α)·S/4, also T<sub>s</sub> = [ (1−α)·S / (4σ(1−ε/2)) ]<sup>1/4</sup>.
+      Ohne Treibhaus (ε = 0) ergibt sich eine mittlere Oberflächentemperatur von etwa −18 °C; mit ε ≈ 0,77
+      etwa +15 °C. Das ist ein stark vereinfachtes Lehrbuchmodell – keine Klimaprognose.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 620;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+
+  const S = 1361;                 // Solarkonstante in W/m²
+  const SIGMA = 5.670374419e-8;   // Stefan-Boltzmann-Konstante
+  const albedoEl = document.getElementById('albedo');
+  const epsEl = document.getElementById('eps');
+  const albedoV = document.getElementById('albedoV');
+  const epsV = document.getElementById('epsV');
+  const rTs = document.getElementById('rTs');
+  const rTa = document.getElementById('rTa');
+  const rIn = document.getElementById('rIn');
+  const rOut = document.getElementById('rOut');
+
+  const de = (v, d = 1) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function params() {
+    return {alpha: parseFloat(albedoEl.value), eps: parseFloat(epsEl.value)};
+  }
+
+  function physics() {
+    const {alpha, eps} = params();
+    const qIn = (1 - alpha) * S / 4;
+    const denom = SIGMA * (1 - eps / 2);
+    const Ts = Math.pow(qIn / denom, 0.25);
+    const Ta = eps > 0.001 ? Ts / Math.pow(2, 0.25) : null;
+    const surfaceIR = SIGMA * Math.pow(Ts, 4);
+    const toa = (1 - eps / 2) * surfaceIR;
+    return {alpha, eps, qIn, Ts, Ta, surfaceIR, toa, TsC: Ts - 273.15, TaC: Ta === null ? null : Ta - 273.15};
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#050b16');
+    grd.addColorStop(0.55, '#0a1c33');
+    grd.addColorStop(1, '#0b1424');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+
+    // Sterne
+    ctx.save();
+    for (let i = 0; i < 70; i++) {
+      const x = (i * 137.5) % W;
+      const y = (i * 83.7) % 230;
+      const a = 0.15 + ((i * 7) % 10) / 30;
+      ctx.fillStyle = `rgba(230,238,248,${a})`;
+      ctx.beginPath(); ctx.arc(x, y, i % 5 === 0 ? 1.4 : 0.8, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawSun() {
+    const x = 104, y = 92;
+    ctx.save();
+    const g = ctx.createRadialGradient(x, y, 4, x, y, 60);
+    g.addColorStop(0, 'rgba(255,240,170,0.95)');
+    g.addColorStop(0.35, 'rgba(255,213,79,0.55)');
+    g.addColorStop(1, 'rgba(255,213,79,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, 60, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = '#ffe082';
+    ctx.beginPath(); ctx.arc(x, y, 30, 0, Math.PI * 2); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255,224,130,0.65)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 12; i++) {
+      const a = i * Math.PI / 6;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * 38, y + Math.sin(a) * 38);
+      ctx.lineTo(x + Math.cos(a) * 50, y + Math.sin(a) * 50);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawAtmosphere() {
+    ctx.save();
+    const g = ctx.createLinearGradient(0, 230, 0, 330);
+    g.addColorStop(0, 'rgba(79,195,247,0.03)');
+    g.addColorStop(0.5, 'rgba(79,195,247,0.13)');
+    g.addColorStop(1, 'rgba(79,195,247,0.04)');
+    ctx.fillStyle = g;
+    ctx.fillRect(40, 240, 640, 86);
+    ctx.strokeStyle = 'rgba(79,195,247,0.35)';
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath(); ctx.moveTo(40, 240); ctx.lineTo(680, 240); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(40, 326); ctx.lineTo(680, 326); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(79,195,247,0.85)';
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Atmosphäre (Treibhausgase)', 58, 226);
+    ctx.restore();
+  }
+
+  function drawEarth() {
+    const p = physics();
+    // Oberfläche
+    ctx.save();
+    const g = ctx.createLinearGradient(0, 480, 0, H);
+    g.addColorStop(0, '#1f4d3a');
+    g.addColorStop(1, '#0a1a18');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(0, 492);
+    ctx.quadraticCurveTo(160, 474, 340, 488);
+    ctx.quadraticCurveTo(510, 502, 680, 484);
+    ctx.lineTo(680, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(126,231,135,0.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 492);
+    ctx.quadraticCurveTo(160, 474, 340, 488);
+    ctx.quadraticCurveTo(510, 502, 680, 484);
+    ctx.stroke();
+
+    // Temperaturfarbe
+    const t = Math.max(0, Math.min(1, (p.TsC + 30) / 70));
+    const hue = 210 * (1 - t);
+    ctx.fillStyle = `hsla(${hue}, 75%, 55%, 0.28)`;
+    ctx.fillRect(0, 484, 680, 10);
+
+    ctx.fillStyle = 'rgba(230,238,248,0.9)';
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Erdoberfläche', 58, 512);
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.fillText('global gemittelt · Modellhöhe nicht maßstäblich', 58, 530);
+    ctx.restore();
+  }
+
+  function arrow(x1, y1, x2, y2, color, width = 3, dashed = false, label = '', lx = 0, ly = 0) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    if (dashed) {
+      ctx.setLineDash([9, 7]);
+      ctx.lineDashOffset = -(performance.now() / 60) % 16;
+    }
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    const head = 7 + width * 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - Math.cos(ang - 0.45) * head, y2 - Math.sin(ang - 0.45) * head);
+    ctx.lineTo(x2 - Math.cos(ang + 0.45) * head, y2 - Math.sin(ang + 0.45) * head);
+    ctx.closePath();
+    ctx.fill();
+
+    if (label) {
+      ctx.font = '600 11px Segoe UI, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, x2 + lx, y2 + ly);
+    }
+    ctx.restore();
+  }
+
+  function label(text, x, y, color, align = 'left', size = 11) {
+    ctx.save();
+    ctx.font = `600 ${size}px Segoe UI, sans-serif`;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'alphabetic';
+    const w = ctx.measureText(text).width;
+    const bx = align === 'right' ? x - w - 5 : align === 'center' ? x - w / 2 - 5 : x - 5;
+    ctx.fillStyle = 'rgba(6,13,24,0.72)';
+    ctx.fillRect(bx, y - size, w + 10, size + 6);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  function drawFluxes() {
+    const p = physics();
+    const eps = p.eps;
+
+    // Sonnenstrahlung (kurzwellig) – kommt schräg von links oben
+    arrow(220, 120, 266, 474, 'rgba(255,213,79,0.95)', 5);
+    arrow(250, 120, 296, 474, 'rgba(255,213,79,0.55)', 3);
+    arrow(280, 120, 326, 474, 'rgba(255,213,79,0.35)', 2);
+    label(`S/4 = ${de(S / 4, 0)} W/m²`, 334, 138, 'rgba(255,213,79,0.95)');
+
+    // Reflexion an der Oberfläche
+    arrow(300, 470, 196, 132, 'rgba(255,213,79,0.65)', 2.5, true);
+    label(`reflektiert: α·S/4 = ${de(p.alpha * S / 4, 0)} W/m²`, 312, 300, 'rgba(255,213,79,0.8)');
+
+    // Wärmestrahlung der Oberfläche (langwellig)
+    arrow(410, 470, 410, 332, 'rgba(255,138,101,0.9)', 5);
+    arrow(445, 470, 445, 332, 'rgba(255,138,101,0.62)', 3.5);
+    arrow(480, 470, 480, 332, 'rgba(255,138,101,0.42)', 2.5);
+    label('σT_s⁴', 506, 430, 'rgba(255,138,101,0.95)');
+
+    // Absorptionsbereich in der Atmosphäre
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,138,101,0.10)';
+    ctx.fillRect(392, 240, 118, 86);
+    ctx.restore();
+    label(`Atmosphäre absorbiert ε·σT_s⁴ = ${de(eps * p.surfaceIR, 0)} W/m²`, 40, 358, 'rgba(255,138,101,0.85)');
+
+    // Atmosphäre: Abstrahlung nach unten (Gegenstrahlung)
+    arrow(468, 326, 468, 458, 'rgba(255,138,101,0.6)', 2.5, true);
+    arrow(500, 326, 500, 458, 'rgba(255,138,101,0.38)', 1.8, true);
+    label('εσT_s⁴/2', 512, 448, 'rgba(255,138,101,0.85)');
+
+    // Atmosphäre: Abstrahlung nach oben
+    arrow(468, 240, 468, 112, 'rgba(255,138,101,0.6)', 2.5, true);
+    arrow(500, 240, 500, 112, 'rgba(255,138,101,0.38)', 1.8, true);
+    label('εσT_s⁴/2', 456, 200, 'rgba(255,138,101,0.85)', 'right');
+
+    // Direkt durchgelassene Wärmestrahlung
+    arrow(580, 470, 580, 92, 'rgba(255,138,101,0.32)', 1.6, false);
+    label('(1−ε)·σT_s⁴', 570, 352, 'rgba(255,138,101,0.7)', 'right');
+
+    // Ausstrahlung ins All (Summe)
+    label(`ins All: ${de(p.toa, 0)} W/m²`, 676, 100, 'rgba(255,138,101,0.95)', 'right', 12);
+  }
+
+  function drawThermometer() {
+    const p = physics();
+    const x = 790, top = 120, bot = 470, h = bot - top, w = 30;
+    const minC = -40, maxC = 50;
+    const yOf = (c) => bot - (Math.max(minC, Math.min(maxC, c)) - minC) / (maxC - minC) * h;
+
+    ctx.save();
+    // Panel
+    ctx.fillStyle = 'rgba(10,21,36,0.55)';
+    ctx.strokeStyle = 'rgba(79,195,247,0.14)';
+    ctx.lineWidth = 1;
+    roundRect(690, 80, 270, 430, 14, true, true);
+
+    ctx.fillStyle = 'rgba(138,160,189,0.95)';
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Gleichgewichtstemperatur', 825, 106);
+
+    // Skala
+    ctx.strokeStyle = 'rgba(138,160,189,0.25)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(138,160,189,0.75)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    for (let c = minC; c <= maxC; c += 10) {
+      const y = yOf(c);
+      ctx.beginPath(); ctx.moveTo(x - 20, y); ctx.lineTo(x - 12, y); ctx.stroke();
+      ctx.fillText(`${c}°`, x - 26, y + 3);
+    }
+
+    // Rohr
+    ctx.fillStyle = 'rgba(230,238,248,0.10)';
+    ctx.strokeStyle = 'rgba(230,238,248,0.35)';
+    ctx.lineWidth = 2;
+    roundRect(x - w / 2, top, w, h, w / 2, true, true);
+
+    // Füllung
+    const yS = yOf(p.TsC);
+    const grad = ctx.createLinearGradient(0, bot, 0, top);
+    grad.addColorStop(0, '#4fc3f7');
+    grad.addColorStop(0.5, '#ffd54f');
+    grad.addColorStop(1, '#ff5252');
+    ctx.fillStyle = grad;
+    roundRect(x - w / 2 + 5, yS, w - 10, bot - yS, (w - 10) / 2, true, false);
+
+    // Marker Oberfläche
+    ctx.strokeStyle = '#ff8a65';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x - 42, yS); ctx.lineTo(x + 48, yS); ctx.stroke();
+    ctx.fillStyle = '#ff8a65';
+    ctx.font = '700 14px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${de(p.TsC)} °C`, x + 54, yS + 5);
+
+    // Marker Atmosphäre
+    if (p.TaC !== null) {
+      const yA = yOf(p.TaC);
+      ctx.strokeStyle = 'rgba(79,195,247,0.8)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(x - 42, yA); ctx.lineTo(x + 48, yA); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(79,195,247,0.9)';
+      ctx.font = '600 11px Segoe UI, sans-serif';
+      ctx.fillText(`${de(p.TaC)} °C`, x + 54, yA + 4);
+    }
+
+    // Kelvin
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`T_s = ${de(p.Ts)} K`, 825, 498);
+
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  function updateReadout() {
+    const p = physics();
+    albedoV.textContent = de(p.alpha, 2);
+    epsV.textContent = de(p.eps, 2);
+    rTs.textContent = `${de(p.TsC)} °C`;
+    rTa.textContent = p.TaC === null ? '–' : `${de(p.TaC)} °C`;
+    rIn.textContent = `${de(p.qIn, 0)} W/m²`;
+    rOut.textContent = `${de(p.toa, 0)} W/m²`;
+  }
+
+  function draw() {
+    drawBackground();
+    drawSun();
+    drawEarth();
+    drawAtmosphere();
+    drawFluxes();
+    drawThermometer();
+    updateReadout();
+  }
+
+  function loop() {
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  [albedoEl, epsEl].forEach(el => el.addEventListener('input', draw));
+
+  document.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.preset;
+      if (name === 'none') { albedoEl.value = 0.3; epsEl.value = 0; }
+      if (name === 'weak') { albedoEl.value = 0.3; epsEl.value = 0.4; }
+      if (name === 'today') { albedoEl.value = 0.3; epsEl.value = 0.77; }
+      if (name === 'strong') { albedoEl.value = 0.3; epsEl.value = 0.9; }
+      draw();
+    });
+  });
+
+  window.addEventListener('resize', () => { fitCanvas(); draw(); });
+  fitCanvas();
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

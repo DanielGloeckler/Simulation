@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Interaktive Physik-Simulationen für den Unterricht – ausgewählt nach typischen Verständnisschwierigkeiten im Bildungsplan 2016 (Baden-Württemberg).">
+<title>Physik-Simulationen – interaktiv lernen</title>
+<style>
+  :root{
+    --bg:#070d18;
+    --panel:rgba(19,29,49,.78);
+    --panel-hover:rgba(28,43,70,.92);
+    --line:rgba(79,195,247,.18);
+    --text:#e6eef8;
+    --muted:#8aa0bd;
+    --accent:#4fc3f7;
+    --amber:#ffd54f;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; min-height:100vh; padding:0 16px 70px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(1100px 600px at 15% -10%, #173052 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, #123b46 0%, transparent 55%),
+      var(--bg);
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+
+  header{padding:64px 0 34px;text-align:center}
+  .eyebrow{
+    display:inline-block;padding:5px 12px;border:1px solid var(--line);border-radius:999px;
+    color:var(--accent);font-size:.76rem;letter-spacing:.12em;text-transform:uppercase;
+    background:rgba(79,195,247,.07);margin-bottom:18px;
+  }
+  h1{
+    margin:0 0 12px;font-size:clamp(2rem,5vw,3.4rem);line-height:1.05;letter-spacing:-.02em;
+  }
+  h1 span{
+    background:linear-gradient(120deg,var(--accent),#7ee787 55%,var(--amber));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .lead{max-width:760px;margin:0 auto;color:var(--muted);font-size:1.02rem;line-height:1.65}
+  .meta{
+    display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:24px;
+    color:var(--muted);font-size:.82rem;
+  }
+  .meta span{
+    border:1px solid rgba(138,160,189,.22);border-radius:999px;padding:5px 12px;
+    background:rgba(10,21,36,.5);
+  }
+
+  main{padding-top:8px}
+  section.topic{margin-top:38px}
+  .topic-head{
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid rgba(138,160,189,.16);
+  }
+  .topic-head h2{
+    margin:0;font-size:1.18rem;letter-spacing:.01em;color:var(--topic-color,var(--accent));
+  }
+  .topic-head p{margin:0;color:var(--muted);font-size:.86rem}
+
+  .grid{
+    display:grid;gap:14px;
+    grid-template-columns:repeat(auto-fill,minmax(265px,1fr));
+  }
+  a.card{
+    position:relative;display:flex;flex-direction:column;gap:8px;
+    min-height:132px;padding:18px 18px 16px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    color:inherit;text-decoration:none;overflow:hidden;
+    transition:transform .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
+  }
+  a.card::after{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--topic-color,var(--accent));opacity:.75;
+  }
+  a.card:hover{
+    transform:translateY(-3px);
+    background:var(--panel-hover);
+    border-color:rgba(79,195,247,.42);
+    box-shadow:0 14px 34px rgba(0,0,0,.35);
+  }
+  a.card:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .card h3{margin:0;font-size:1.02rem;line-height:1.32;color:var(--text)}
+  .tag{
+    flex:0 0 auto;font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--topic-color,var(--accent));background:rgba(79,195,247,.09);
+    border:1px solid rgba(79,195,247,.22);border-radius:999px;padding:3px 8px;
+  }
+  .tag.new{color:#0a1524;background:var(--amber);border-color:transparent}
+  .card p{margin:0;color:var(--muted);font-size:.86rem;line-height:1.5}
+  .card .foot{
+    margin-top:auto;padding-top:10px;display:flex;justify-content:space-between;align-items:center;
+    font-size:.78rem;color:rgba(138,160,189,.9);
+  }
+  .card .go{color:var(--accent);font-weight:600}
+
+  .note{
+    margin-top:44px;padding:18px 20px;border:1px solid rgba(138,160,189,.18);
+    border-radius:14px;background:rgba(10,21,36,.5);color:var(--muted);
+    font-size:.86rem;line-height:1.65;
+  }
+  .note b{color:var(--text)}
+
+  footer{
+    margin-top:48px;padding-top:22px;border-top:1px solid rgba(138,160,189,.16);
+    display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    color:var(--muted);font-size:.82rem;
+  }
+  footer a{color:var(--accent);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+
+  @media (max-width:560px){
+    header{padding-top:44px}
+    .grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Bildungsplan 2016 · Physik Gymnasium</div>
+    <h1>Physik <span>interaktiv</span> verstehen</h1>
+    <p class="lead">
+      Simulationen zu Themen, die im Unterricht erfahrungsgemäß schwer zu fassen sind:
+      Potenzial und Spannung, Bewegungsdiagramme, Kreisbewegung, Linsen, Treibhauseffekt
+      und radioaktiver Zerfall. Alle Seiten laufen direkt im Browser – ohne Installation.
+    </p>
+    <div class="meta">
+      <span>16 Simulationen</span>
+      <span>Klassen 7–10</span>
+      <span>physikalisch modelliert</span>
+      <span>Maus &amp; Touch</span>
+    </div>
+  </header>
+
+  <main>
+
+    <section class="topic" style="--topic-color:#7ee787">
+      <div class="topic-head">
+        <h2>Akustik</h2>
+        <p>Schwingung, Ausbreitung und Teilchenmodell</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="Akustik/Schallausbreitung.html">
+          <div class="card-top"><h3>Schallausbreitung</h3><span class="tag">Kl. 7/8</span></div>
+          <p>Verdichtungen und Verdünnungen im Teilchenmodell – warum Schall ein Medium braucht.</p>
+          <div class="foot"><span>Teilchenmodell</span><span class="go">Öffnen →</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="topic" style="--topic-color:#4fc3f7">
+      <div class="topic-head">
+        <h2>Optik</h2>
+        <p>Lichtstrahlen, Abbildungen und Wahrnehmung</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="Optik/Linsen.html">
+          <div class="card-top"><h3>Optische Linsen</h3><span class="tag new">Neu</span></div>
+          <p>Bildentstehung an der Sammellinse: Strahlengang, Linsengleichung, reelle und virtuelle Bilder.</p>
+          <div class="foot"><span>Kl. 7/8 · Strahlenmodell</span><span class="go">Öffnen →</span></div>
+        </a>
+        <a class="card" href="Optik/Brechung.html">
+          <div class="card-top"><h3>Brechung &amp; optische Hebung</h3><span class="tag">Kl. 7/8</span></div>
+          <p>Warum ein Strohhalm im Wasser geknickt erscheint – Strahlenverlauf und Wahrnehmung.</p>
+          <div class="foot"><span>Brechungsgesetz</span><span class="go">Öffnen →</span></div>
+        </a>
+        <a class="card" href="Optik/Lochkammera.html">
+          <div class="card-top"><h3>Lochkamera</h3><span class="tag">Kl. 7/8</span></div>
+          <p>Bildentstehung ohne Linse: je größer der Abstand, desto größer das Bild – und umgekehrt.</p>
+          <div class="foot"><span>Strahlenmodell</span><span class="go">Öffnen →</span></div>
+        </a>
+        <a class="card" href="Optik/Mondphasen.html">
+          <div class="card-top"><h3>Mondphasen</h3><span class="tag">Kl. 7/8</span></div>
+          <p>Beleuchtungswinkel, Perspektive von der Erde und die Entstehung von Halbmond und Vollmond.</p>
+          <div class="foot"><span>Astronomie</span><span class="go">Öffnen →</span></div>
+        </a>
+        <a class="card" href="Optik/Schatten.html">
+          <div class="card-top"><h3>Schatten</h3><span class="tag">Kl. 7/8</span></div>
+          <p>Kernschatten, Halbschatten und Schattenraum – mit ausgedehnter Lichtquelle.</p>
+          <div class="foot"><span>Schattenphänomene</span><span class="go">Öffnen →</span></div>
+        </a>
+        <a class="card" href="Optik/SonneMondSterne.html">
+          <div class="card-top"><h3>Sonne, Mond und Sterne</h3><span class="tag">Kl. 7/8</span></div>
+          <p>Größenverhältnisse und Entfernungen im Sonnensystem anschaulich gemacht.</p>
+          <div class="foot"><span>Astronomie</span><span class="go">Öffnen →</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="topic" style="--topic-color:#ffb74d">
+      <div class="topic-head">
+        <h2>Energie</h2>
+        <p>Energieformen, Übertragung und Erhaltung</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="Energie/Energieerhaltung.html">
+          <div class="card-top"><h3>Energieerhaltung</h3><span class="tag">Kl. 7/8</span></div>
+          <p>Ein Skatepark als Energiespeicher: Lageenergie, Bewegungsenergie und thermische Energie im Wechsel.</p>
+          <div class="foot"><span>Energiebilanzen</span><span class="go">Öffnen →</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="topic" style="--topic-color:#ffd54f">
+      <div class="topic-head">
+        <h2>Elektrizitätslehre</h2>
+        <p>Ladung, Strom, Spannung und Widerstand</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="E-Lehre/Spannung-Potenzial.html">
+          <div class="card-top"><h3>Spannung &amp; Potenzial</h3><span class="tag new">Neu</span></div>
+          <p>Was bedeutet „Spannung“? Potenzialberg an der Batterie, Potenzialabfall im Widerstand und Energie pro Ladung.</p>
+          <div class="foot"><span>Kl. 8/9 · Potenzialmodell</span><span class="go">Öffnen →</span></div>
+        </a>
+        <a class="card" href="E-Lehre/Kennlinie.html">
+          <div class="card-top"><h3>Kennlinien</h3><span class="tag">Kl. 9</span></div>
+          <p>U-I-Diagramme verschiedener Bauteile: Ohm'scher Widerstand, Glühlampe und Diode im Vergleich.</p>
+          <div class="foot"><span>Ohm'sches Gesetz</span><span class="go">Öffnen →</span></div>
+        </a>
+        <a class="card" href="E-Lehre/Schaltungen.html">
+          <div class="card-top"><h3>Stromkreis mit Glühlampe</h3><span class="tag">Kl. 7/8</span></div>
+          <p>Elektronen im Kabel: Wie Spannung, Stromstärke und Helligkeit zusammenhängen.</p>
+          <div class="foot"><span>Stromkreis</span><span class="go">Öffnen →</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="topic" style="--topic-color:#c792ea">
+      <div class="topic-head">
+        <h2>Elektromagnetismus</h2>
+        <p>Magnetfeld, Induktion und technische Anwendungen</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="E-MAG/Induktion.html">
+          <div class="card-top"><h3>Elektromagnetische Induktion</h3><span class="tag">Kl. 9</span></div>
+          <p>Bewegter Magnet, Spule und Induktionsspannung – die Grundlage von Generator und Transformator.</p>
+          <div class="foot"><span>Induktionsgesetz</span><span class="go">Öffnen →</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="topic" style="--topic-color:#ff8a65">
+      <div class="topic-head">
+        <h2>Mechanik</h2>
+        <p>Bewegungen beschreiben und Kräfte verstehen</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="Mechanik/Bewegungsdiagramme.html">
+          <div class="card-top"><h3>Bewegungsdiagramme</h3><span class="tag new">Neu</span></div>
+          <p>s-t-, v-t- und a-t-Diagramm synchron: Steigung als Geschwindigkeit, Fläche als Strecke.</p>
+          <div class="foot"><span>Kl. 8/10 · Kinematik</span><span class="go">Öffnen →</span></div>
+        </a>
+        <a class="card" href="Mechanik/Kreisbewegung.html">
+          <div class="card-top"><h3>Kreisbewegung</h3><span class="tag new">Neu</span></div>
+          <p>Zentripetalkraft, tangentiale Geschwindigkeit und was passiert, wenn der Faden reißt.</p>
+          <div class="foot"><span>Kl. 10 · Dynamik</span><span class="go">Öffnen →</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="topic" style="--topic-color:#ef5350">
+      <div class="topic-head">
+        <h2>Wärmelehre</h2>
+        <p>Thermische Energie und Strahlungsbilanz</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="Wärmelehre/Treibhauseffekt.html">
+          <div class="card-top"><h3>Treibhauseffekt</h3><span class="tag new">Neu</span></div>
+          <p>Strahlungsbilanz im Ein-Schicht-Modell: Albedo, Treibhauswirkung und Gleichgewichtstemperatur.</p>
+          <div class="foot"><span>Kl. 9 · Klimaphysik</span><span class="go">Öffnen →</span></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="topic" style="--topic-color:#ba68c8">
+      <div class="topic-head">
+        <h2>Struktur der Materie</h2>
+        <p>Atomkern, Radioaktivität und Statistik</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="Struktur-der-Materie/Halbwertszeit.html">
+          <div class="card-top"><h3>Halbwertszeit</h3><span class="tag new">Neu</span></div>
+          <p>Zufälliger Zerfall einzelner Kerne und die exakte Exponentialkurve – Statistik zum Anfassen.</p>
+          <div class="foot"><span>Kl. 9 · Radioaktivität</span><span class="go">Öffnen →</span></div>
+        </a>
+      </div>
+    </section>
+
+    <div class="note">
+      <b>Hinweis zu den Modellen:</b> Die Simulationen sind für den Unterricht didaktisch reduziert.
+      Vereinfachungen, Idealisierungen und Grenzen des jeweiligen Modells stehen direkt in der Simulation.
+      Sie ersetzen kein Realexperiment, machen aber schwer sichtbare Zusammenhänge (Potenzial, Felder,
+      Strahlungsbilanzen, statistische Zerfälle) manipulierbar und diskutierbar.
+    </div>
+
+    <footer>
+      <span>Physik-Simulationen · Gymnasium Baden-Württemberg · Bildungsplan 2016</span>
+      <span><a href="https://github.com/DanielGloeckler/Simulation">Quellcode auf GitHub</a></span>
+    </footer>
+
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optische Linsen – Bildentstehung (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1100px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1100px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/470;display:block;border-radius:12px;background:#0a1524;touch-action:none;cursor:crosshair}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:220px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:100px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:62px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 15px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.on{background:rgba(255,213,79,.18);border-color:rgba(255,213,79,.55);color:var(--accent2)}
+  .readout{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px;
+  }
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.warm{color:var(--warm)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Optische Linsen – <span>Bildentstehung</span></h1>
+  <p class="subtitle">Sammellinse · dünne Linse · Strahlenmodell</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Strahlengang an einer Sammellinse"></canvas>
+
+    <div class="controls">
+      <label>Gegenstandsweite g <input id="g" type="range" min="4" max="50" step="0.5" value="30"><output id="gv">30,0 cm</output></label>
+      <label>Brennweite f <input id="f" type="range" min="5" max="20" step="0.5" value="10"><output id="fv">10,0 cm</output></label>
+      <label>Gegenstandshöhe h <input id="h" type="range" min="2" max="8" step="0.5" value="5"><output id="hv">5,0 cm</output></label>
+    </div>
+
+    <div class="controls">
+      <button data-preset="far">g &gt; 2f</button>
+      <button data-preset="mid">f &lt; g &lt; 2f</button>
+      <button data-preset="near">g &lt; f</button>
+      <button id="rayBtn" class="on">Hilfsstrahlen</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Bildweite b</div><div class="v" id="rB">–</div></div>
+      <div><div class="k">Abbildungsmaßstab</div><div class="v" id="rM">–</div></div>
+      <div><div class="k">Bildhöhe</div><div class="v" id="rH">–</div></div>
+      <div><div class="k">Bildart</div><div class="v warm" id="rType">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>So liest du die Simulation:</b> Der Gegenstand steht links vor der Linse. Der achsenparallele Strahl
+      wird zum hinteren Brennpunkt F′ gebrochen, der Mittelpunktstrahl läuft unverändert weiter und der Strahl
+      durch den vorderen Brennpunkt F verlässt die Linse achsenparallel. Für g &lt; f sind die gebrochenen Strahlen
+      divergent – ihre <i>rückwärtigen Verlängerungen</i> (gestrichelt) ergeben das virtuelle Bild.
+      Es gilt die Linsengleichung 1/f = 1/g + 1/b. Ziehe den Gegenstand auch direkt mit der Maus.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 470;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const AXIS = 250;          // optische Achse
+  const LENS_X = 520;        // Linsenebene
+  const SCALE = 8;           // Pixel pro cm
+  const LENS_HALF = 120;     // halbe Linsenhöhe in Pixeln
+
+  const gEl = document.getElementById('g');
+  const fEl = document.getElementById('f');
+  const hEl = document.getElementById('h');
+  const gv = document.getElementById('gv');
+  const fv = document.getElementById('fv');
+  const hv = document.getElementById('hv');
+  const rB = document.getElementById('rB');
+  const rM = document.getElementById('rM');
+  const rH = document.getElementById('rH');
+  const rType = document.getElementById('rType');
+  const rayBtn = document.getElementById('rayBtn');
+
+  let showRays = true;
+  let dragging = false;
+
+  const de = (v, d = 1) => v.toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function state() {
+    const g = parseFloat(gEl.value);
+    const f = parseFloat(fEl.value);
+    const h = parseFloat(hEl.value);
+    const denom = g - f;
+    const b = Math.abs(denom) < 0.05 ? Infinity : (f * g) / denom;
+    const m = Number.isFinite(b) ? -b / g : Infinity;
+    const hi = Number.isFinite(m) ? m * h : Infinity;
+    return {g, f, h, b, m, hi};
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+
+    // feines Raster
+    ctx.save();
+    ctx.strokeStyle = 'rgba(79,195,247,0.055)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y <= H; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    ctx.restore();
+
+    // optische Achse
+    ctx.strokeStyle = 'rgba(138,160,189,0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([7, 6]);
+    ctx.beginPath(); ctx.moveTo(30, AXIS); ctx.lineTo(W - 30, AXIS); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawLens() {
+    ctx.save();
+    // Linsenkörper
+    ctx.beginPath();
+    ctx.moveTo(LENS_X, AXIS - LENS_HALF);
+    ctx.quadraticCurveTo(LENS_X - 34, AXIS, LENS_X, AXIS + LENS_HALF);
+    ctx.quadraticCurveTo(LENS_X + 34, AXIS, LENS_X, AXIS - LENS_HALF);
+    ctx.closePath();
+    const lg = ctx.createLinearGradient(LENS_X - 30, 0, LENS_X + 30, 0);
+    lg.addColorStop(0, 'rgba(79,195,247,0.10)');
+    lg.addColorStop(0.5, 'rgba(79,195,247,0.30)');
+    lg.addColorStop(1, 'rgba(79,195,247,0.10)');
+    ctx.fillStyle = lg;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(79,195,247,0.85)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Linsenebene
+    ctx.strokeStyle = 'rgba(79,195,247,0.28)';
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(LENS_X, 30); ctx.lineTo(LENS_X, H - 30); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(79,195,247,0.92)';
+    ctx.font = '600 14px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Linse', LENS_X + 10, 48);
+    ctx.restore();
+  }
+
+  function drawFocus() {
+    const {f} = state();
+    const points = [
+      {x: LENS_X - 2 * f * SCALE, label: '2F'},
+      {x: LENS_X - f * SCALE, label: 'F'},
+      {x: LENS_X + f * SCALE, label: "F′"},
+      {x: LENS_X + 2 * f * SCALE, label: "2F′"}
+    ];
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    for (const p of points) {
+      if (p.x < 15 || p.x > W - 15) continue;
+      ctx.fillStyle = 'rgba(255,213,79,0.9)';
+      ctx.beginPath(); ctx.arc(p.x, AXIS, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,213,79,0.75)';
+      ctx.fillText(p.label, p.x, AXIS + 36);
+      ctx.strokeStyle = 'rgba(255,213,79,0.16)';
+      ctx.setLineDash([3, 6]);
+      ctx.beginPath(); ctx.moveTo(p.x, 40); ctx.lineTo(p.x, H - 40); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  function drawArrow(x, yBase, yTip, color, dashed = false, label = '') {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 3;
+    if (dashed) ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(x, yBase);
+    ctx.lineTo(x, yTip);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const dir = yTip < yBase ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(x, yTip);
+    ctx.lineTo(x - 7, yTip - dir * 12);
+    ctx.lineTo(x + 7, yTip - dir * 12);
+    ctx.closePath();
+    ctx.fill();
+
+    if (label) {
+      ctx.font = '600 13px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      const ly = yTip < yBase ? yTip - 12 : yTip + 24;
+      const lw = ctx.measureText(label).width;
+      ctx.fillStyle = 'rgba(8,17,31,0.85)';
+      ctx.fillRect(x - lw / 2 - 5, ly - 12, lw + 10, 17);
+      ctx.fillStyle = color;
+      ctx.fillText(label, x, ly);
+    }
+    ctx.restore();
+  }
+
+  function lineYAtX(x1, y1, x2, y2, x) {
+    if (Math.abs(x2 - x1) < 1e-9) return y1;
+    return y1 + (y2 - y1) * (x - x1) / (x2 - x1);
+  }
+
+  function drawRay(points, color, dashed = false) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    if (dashed) ctx.setLineDash([8, 7]);
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawScene() {
+    drawBackground();
+    drawFocus();
+    drawLens();
+
+    const {g, f, h, b, m, hi} = state();
+    const ox = LENS_X - g * SCALE;
+    const oy = AXIS - h * SCALE;
+
+    const finite = Number.isFinite(b);
+    const imgX = finite ? LENS_X + b * SCALE : null;
+    const imgY = finite ? AXIS - hi * SCALE : null;
+    const virtual = finite && b < 0;
+
+    if (showRays) {
+      // Strahl 1: parallel zur Achse, dann durch F′
+      drawRay([{x: ox, y: oy}, {x: LENS_X, y: oy}], '#4fc3f7');
+      const y1Right = lineYAtX(LENS_X, oy, LENS_X + f * SCALE, AXIS, W);
+      drawRay([{x: LENS_X, y: oy}, {x: W, y: y1Right}], '#4fc3f7');
+
+      // Strahl 2: durch den Linsenmittelpunkt
+      const y2Right = lineYAtX(ox, oy, LENS_X, AXIS, W);
+      drawRay([{x: ox, y: oy}, {x: W, y: y2Right}], '#ffd54f');
+
+      // Strahl 3: durch F, dann achsenparallel
+      const y3Lens = lineYAtX(LENS_X - f * SCALE, AXIS, ox, oy, LENS_X);
+      drawRay([{x: ox, y: oy}, {x: LENS_X, y: y3Lens}], '#ff8a65');
+      drawRay([{x: LENS_X, y: y3Lens}, {x: W, y: y3Lens}], '#ff8a65');
+
+      // virtuelle Bildkonstruktion: rückwärtige Verlängerungen
+      if (virtual) {
+        const dash = 'rgba(79,195,247,0.62)';
+        // Verlängerung von Strahl 1 nach links
+        drawRay([{x: LENS_X, y: oy}, {x: imgX, y: lineYAtX(LENS_X, oy, LENS_X + f * SCALE, AXIS, imgX)}], dash, true);
+        // Verlängerung von Strahl 2 nach links
+        drawRay([{x: LENS_X, y: AXIS}, {x: imgX, y: lineYAtX(ox, oy, LENS_X, AXIS, imgX)}], 'rgba(255,213,79,0.62)', true);
+        // Verlängerung von Strahl 3 nach links
+        drawRay([{x: LENS_X, y: y3Lens}, {x: imgX, y: y3Lens}], 'rgba(255,138,101,0.62)', true);
+      }
+    }
+
+    // Gegenstand (zuletzt, damit er über den Strahlen liegt)
+    drawArrow(ox, AXIS, oy, '#7ee787', false, 'Gegenstand');
+
+    // Bild
+    if (finite && Math.abs(b) <= 130 && Number.isFinite(hi)) {
+      drawArrow(imgX, AXIS, imgY, virtual ? '#c792ea' : '#ffd54f', virtual, virtual ? 'virtuelles Bild' : 'Bild');
+      // Markierung der Bildweite
+      ctx.save();
+      ctx.strokeStyle = 'rgba(199,146,234,0.35)';
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath(); ctx.moveTo(imgX, AXIS); ctx.lineTo(imgX, H - 26); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Maßstabsangabe
+    ctx.save();
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('1 Kästchen ≈ 5 cm', 24, H - 20);
+    ctx.textAlign = 'right';
+    ctx.fillText('Strahlengang schematisch – dünne Linse, achsennahe Strahlen', W - 24, H - 20);
+    ctx.restore();
+  }
+
+  function updateReadout() {
+    const {g, f, h, b, m, hi} = state();
+    gv.textContent = de(g) + ' cm';
+    fv.textContent = de(f) + ' cm';
+    hv.textContent = de(h) + ' cm';
+
+    if (!Number.isFinite(b)) {
+      rB.textContent = '∞';
+      rM.textContent = '–';
+      rH.textContent = '–';
+      rType.textContent = 'kein Bild (g = f)';
+    } else {
+      rB.textContent = de(b) + ' cm';
+      rM.textContent = de(Math.abs(m), 2) + '×';
+      rH.textContent = de(Math.abs(hi)) + ' cm';
+      const art = b > 0 ? 'reell' : 'virtuell';
+      const orient = m < 0 ? 'umgekehrt' : 'aufrecht';
+      rType.textContent = `${art}, ${orient}`;
+    }
+  }
+
+  function update() {
+    drawScene();
+    updateReadout();
+  }
+
+  function preset(name) {
+    if (name === 'far') { gEl.value = 3 * parseFloat(fEl.value); }
+    if (name === 'mid') { gEl.value = 1.5 * parseFloat(fEl.value); }
+    if (name === 'near') { gEl.value = 0.6 * parseFloat(fEl.value); }
+    gEl.value = Math.min(50, Math.max(4, parseFloat(gEl.value)));
+    update();
+  }
+
+  function pointerToLogical(ev) {
+    const r = canvas.getBoundingClientRect();
+    return {x: (ev.clientX - r.left) * W / r.width, y: (ev.clientY - r.top) * H / r.height};
+  }
+
+  canvas.addEventListener('pointerdown', (ev) => {
+    const p = pointerToLogical(ev);
+    const {g} = state();
+    const ox = LENS_X - g * SCALE;
+    if (Math.abs(p.x - ox) < 24) {
+      dragging = true;
+      canvas.setPointerCapture(ev.pointerId);
+    }
+  });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!dragging) return;
+    const p = pointerToLogical(ev);
+    const g = (LENS_X - p.x) / SCALE;
+    gEl.value = Math.min(50, Math.max(4, g));
+    update();
+  });
+  canvas.addEventListener('pointerup', () => { dragging = false; });
+  canvas.addEventListener('pointercancel', () => { dragging = false; });
+
+  gEl.addEventListener('input', update);
+  fEl.addEventListener('input', () => {
+    // g an die neue Brennweite anpassen, damit die Szene sinnvoll bleibt
+    update();
+  });
+  hEl.addEventListener('input', update);
+
+  document.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => preset(btn.dataset.preset));
+  });
+  rayBtn.addEventListener('click', () => {
+    showRays = !showRays;
+    rayBtn.classList.toggle('on', showRays);
+    rayBtn.textContent = showRays ? 'Hilfsstrahlen' : 'Hilfsstrahlen aus';
+    update();
+  });
+
+  window.addEventListener('resize', () => { fitCanvas(); update(); });
+  fitCanvas();
+  update();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bewegungsdiagramme – s-t, v-t und a-t (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1100px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1100px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/760;display:block;border-radius:12px;background:#0a1524;touch-action:none;cursor:crosshair}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:210px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:100px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:70px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.on{background:rgba(255,213,79,.18);border-color:rgba(255,213,79,.55);color:var(--accent2)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.amber{color:var(--accent2)}
+  .readout .v.pink{color:var(--pink)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bewegungsdiagramme – <span>s, v und a im Vergleich</span></h1>
+  <p class="subtitle">Kinematik · gleichförmige und gleichmäßig beschleunigte Bewegung</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Bewegungsdiagramme mit Auto"></canvas>
+
+    <div class="controls">
+      <label>Anfangsgeschwindigkeit v₀ <input id="v0" type="range" min="-20" max="30" step="1" value="0"><output id="v0v">0 m/s</output></label>
+      <label>Beschleunigung a <input id="a" type="range" min="-6" max="6" step="0.2" value="2"><output id="av">2,0 m/s²</output></label>
+      <label>Beobachtungsdauer T <input id="T" type="range" min="2" max="20" step="1" value="10"><output id="Tv">10 s</output></label>
+    </div>
+
+    <div class="controls">
+      <button data-preset="uniform">gleichförmig</button>
+      <button data-preset="accel">beschleunigen</button>
+      <button data-preset="brake">bremsen</button>
+      <button data-preset="back">rückwärts</button>
+      <button id="playBtn" class="on">▶ Play</button>
+      <button id="resetBtn">⟲ Reset</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Zeit t</div><div class="v" id="rT">0,0 s</div></div>
+      <div><div class="k">Ort s</div><div class="v" id="rS">0,0 m</div></div>
+      <div><div class="k">Geschwindigkeit v</div><div class="v amber" id="rV">0,0 m/s</div></div>
+      <div><div class="k">Beschleunigung a</div><div class="v pink" id="rA">2,0 m/s²</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Zusammenhänge:</b> Im s-t-Diagramm entspricht die <i>Steigung</i> der Geschwindigkeit v.
+      Im v-t-Diagramm entspricht die <i>Fläche unter der Kurve</i> der zurückgelegten Strecke Δs.
+      Im a-t-Diagramm entspricht die Fläche der Geschwindigkeitsänderung Δv.
+      Für die gleichmäßig beschleunigte Bewegung gilt s(t) = v₀·t + ½·a·t² und v(t) = v₀ + a·t.
+      Klicke oder ziehe in ein Diagramm, um die Zeit zu setzen. Bei negativem v bewegt sich das Auto rückwärts.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 760;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+
+  const LEFT = 92, RIGHT = 942;
+  const TRACK_Y = 82, TRACK_LEFT = 110, TRACK_RIGHT = 925;
+  const PLOTS = [
+    {key:'s', top:150, bottom:300, color:'#4fc3f7', title:'Ort s', unit:'m', zero:true},
+    {key:'v', top:342, bottom:492, color:'#ffd54f', title:'Geschwindigkeit v', unit:'m/s', zero:true},
+    {key:'a', top:534, bottom:684, color:'#f48fb1', title:'Beschleunigung a', unit:'m/s²', zero:true}
+  ];
+
+  const v0El = document.getElementById('v0');
+  const aEl = document.getElementById('a');
+  const TEl = document.getElementById('T');
+  const v0v = document.getElementById('v0v');
+  const av = document.getElementById('av');
+  const Tv = document.getElementById('Tv');
+  const rT = document.getElementById('rT');
+  const rS = document.getElementById('rS');
+  const rV = document.getElementById('rV');
+  const rA = document.getElementById('rA');
+  const playBtn = document.getElementById('playBtn');
+
+  let t = 0;
+  let playing = false;
+  let lastTs = 0;
+  let dragging = false;
+
+  const de = (v, d = 1) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function params() {
+    return {
+      v0: parseFloat(v0El.value),
+      a: parseFloat(aEl.value),
+      T: parseFloat(TEl.value)
+    };
+  }
+
+  function sOf(time, p) { return p.v0 * time + 0.5 * p.a * time * time; }
+  function vOf(time, p) { return p.v0 + p.a * time; }
+
+  function niceStep(span, target = 5) {
+    if (!Number.isFinite(span) || span <= 0) return 1;
+    const raw = span / target;
+    const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / pow;
+    let m;
+    if (n <= 1) m = 1;
+    else if (n <= 2) m = 2;
+    else if (n <= 2.5) m = 2.5;
+    else if (n <= 5) m = 5;
+    else m = 10;
+    return m * pow;
+  }
+
+  function ticks(min, max, target = 5) {
+    const step = niceStep(max - min, target);
+    const start = Math.ceil(min / step) * step;
+    const out = [];
+    for (let x = start; x <= max + step * 1e-6; x += step) out.push(Math.abs(x) < step * 1e-9 ? 0 : x);
+    return out;
+  }
+
+  function padded(min, max, minSpan = 1) {
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return [-1, 1];
+    if (Math.abs(max - min) < 1e-9) {
+      min -= minSpan / 2;
+      max += minSpan / 2;
+    }
+    const pad = (max - min) * 0.12;
+    return [min - pad, max + pad];
+  }
+
+  function ranges(p) {
+    const n = 240;
+    const ss = [], vs = [];
+    for (let i = 0; i <= n; i++) {
+      const time = p.T * i / n;
+      ss.push(sOf(time, p));
+      vs.push(vOf(time, p));
+    }
+    ss.push(0); vs.push(0);
+    let [sMin, sMax] = padded(Math.min(...ss), Math.max(...ss), 2);
+    let [vMin, vMax] = padded(Math.min(...vs), Math.max(...vs), 2);
+    let aMin = Math.min(0, p.a), aMax = Math.max(0, p.a);
+    if (Math.abs(aMax - aMin) < 1e-9) { aMin = -1; aMax = 1; }
+    const ap = (aMax - aMin) * 0.25;
+    return {sMin, sMax, vMin, vMax, aMin: aMin - ap, aMax: aMax + ap};
+  }
+
+  function xOf(time, p) { return LEFT + (time / p.T) * (RIGHT - LEFT); }
+  function yIn(plot, value, min, max) {
+    return plot.bottom - (value - min) / (max - min) * (plot.bottom - plot.top);
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawTrack(p, s, v) {
+    const y = TRACK_Y;
+    // Straße
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,34,55,0.95)';
+    ctx.strokeStyle = 'rgba(79,195,247,0.18)';
+    ctx.lineWidth = 1;
+    roundRect(TRACK_LEFT, y - 26, TRACK_RIGHT - TRACK_LEFT, 52, 10, true, false);
+
+    // Mittelmarkierung
+    ctx.strokeStyle = 'rgba(230,238,248,0.18)';
+    ctx.setLineDash([12, 12]);
+    ctx.beginPath(); ctx.moveTo(TRACK_LEFT + 8, y); ctx.lineTo(TRACK_RIGHT - 8, y); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Positionsskala
+    const rr = ranges(p);
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    const marks = ticks(rr.sMin, rr.sMax, 6);
+    for (const m of marks) {
+      const x = TRACK_LEFT + (m - rr.sMin) / (rr.sMax - rr.sMin) * (TRACK_RIGHT - TRACK_LEFT);
+      ctx.strokeStyle = 'rgba(138,160,189,0.25)';
+      ctx.beginPath(); ctx.moveTo(x, y + 27); ctx.lineTo(x, y + 34); ctx.stroke();
+      ctx.fillText(de(m, 0), x, y + 48);
+    }
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.fillText('Ort s in m', TRACK_LEFT, y - 40);
+
+    // Auto
+    const carX = TRACK_LEFT + (s - rr.sMin) / (rr.sMax - rr.sMin) * (TRACK_RIGHT - TRACK_LEFT);
+    drawCar(carX, y, v < -0.05 ? -1 : 1);
+
+    // Geschwindigkeitspfeil über dem Auto
+    if (Math.abs(v) > 0.05) {
+      const dir = Math.sign(v);
+      const len = Math.min(70, 14 + Math.abs(v) * 2.2);
+      ctx.strokeStyle = '#ffd54f';
+      ctx.fillStyle = '#ffd54f';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(carX, y - 44);
+      ctx.lineTo(carX + dir * len, y - 44);
+      ctx.stroke();
+      const ex = carX + dir * len;
+      ctx.beginPath();
+      ctx.moveTo(ex, y - 44);
+      ctx.lineTo(ex - dir * 9, y - 50);
+      ctx.lineTo(ex - dir * 9, y - 38);
+      ctx.closePath();
+      ctx.fill();
+      ctx.font = '600 12px Segoe UI, sans-serif';
+      ctx.textAlign = dir > 0 ? 'left' : 'right';
+      ctx.fillText(`v = ${de(v)} m/s`, carX + dir * (len + 8), y - 40);
+    }
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  function drawCar(x, y, dir) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(dir, 1);
+
+    // Schatten
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(0, 15, 30, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Karosserie
+    const body = ctx.createLinearGradient(0, -18, 0, 12);
+    body.addColorStop(0, '#7ee787');
+    body.addColorStop(1, '#2f9e5f');
+    ctx.fillStyle = body;
+    roundRect(-28, -12, 56, 22, 7, true, false);
+
+    // Dach
+    ctx.fillStyle = '#a7f3b8';
+    ctx.beginPath();
+    ctx.moveTo(-13, -12);
+    ctx.lineTo(-6, -24);
+    ctx.lineTo(12, -24);
+    ctx.lineTo(20, -12);
+    ctx.closePath();
+    ctx.fill();
+
+    // Fenster
+    ctx.fillStyle = 'rgba(13,27,46,0.8)';
+    ctx.beginPath();
+    ctx.moveTo(-8, -13);
+    ctx.lineTo(-3, -21);
+    ctx.lineTo(5, -21);
+    ctx.lineTo(10, -13);
+    ctx.closePath();
+    ctx.fill();
+
+    // Räder
+    ctx.fillStyle = '#0b1220';
+    ctx.strokeStyle = '#8aa0bd';
+    ctx.lineWidth = 2;
+    for (const wx of [-17, 17]) {
+      ctx.beginPath(); ctx.arc(wx, 11, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawGraph(plot, min, max, values, p, color) {
+    ctx.save();
+    // Panel
+    ctx.fillStyle = 'rgba(10,21,36,0.55)';
+    ctx.strokeStyle = 'rgba(79,195,247,0.14)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.rect(LEFT, plot.top, RIGHT - LEFT, plot.bottom - plot.top);
+    ctx.fill();
+    ctx.stroke();
+
+    // horizontale Gitterlinien + Beschriftung
+    const yTicks = ticks(min, max, 4);
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (const val of yTicks) {
+      const y = yIn(plot, val, min, max);
+      if (y < plot.top - 1 || y > plot.bottom + 1) continue;
+      ctx.strokeStyle = Math.abs(val) < 1e-9 ? 'rgba(230,238,248,0.28)' : 'rgba(138,160,189,0.13)';
+      ctx.beginPath(); ctx.moveTo(LEFT, y); ctx.lineTo(RIGHT, y); ctx.stroke();
+      ctx.fillStyle = 'rgba(138,160,189,0.85)';
+      ctx.fillText(de(val, Math.abs(val) < 10 && val % 1 !== 0 ? 1 : 0), LEFT - 10, y);
+    }
+
+    // Zeitgitter
+    const tTicks = ticks(0, p.T, 6);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (const tv of tTicks) {
+      const x = xOf(tv, p);
+      ctx.strokeStyle = 'rgba(138,160,189,0.10)';
+      ctx.beginPath(); ctx.moveTo(x, plot.top); ctx.lineTo(x, plot.bottom); ctx.stroke();
+      if (plot.key === 'a') {
+        ctx.fillStyle = 'rgba(138,160,189,0.85)';
+        ctx.fillText(de(tv, tv % 1 === 0 ? 0 : 1), x, plot.bottom + 8);
+      }
+    }
+
+    // Titel
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = color;
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.fillText(`${plot.title}  (${plot.unit})`, LEFT + 8, plot.top + 18);
+
+    // Kurve
+    ctx.beginPath();
+    const n = 300;
+    for (let i = 0; i <= n; i++) {
+      const time = p.T * i / n;
+      const val = values(time, p);
+      const x = xOf(time, p);
+      const y = yIn(plot, val, min, max);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+
+    // Null-Linie
+    if (min < 0 && max > 0) {
+      const y0 = yIn(plot, 0, min, max);
+      ctx.strokeStyle = 'rgba(230,238,248,0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(LEFT, y0); ctx.lineTo(RIGHT, y0); ctx.stroke();
+    }
+
+    // Fläche unter v-t bis t
+    if (plot.key === 'v') {
+      const xEnd = xOf(t, p);
+      const y0 = yIn(plot, 0, min, max);
+      ctx.beginPath();
+      ctx.moveTo(LEFT, y0);
+      for (let i = 0; i <= 80; i++) {
+        const time = t * i / 80;
+        ctx.lineTo(xOf(time, p), yIn(plot, values(time, p), min, max));
+      }
+      ctx.lineTo(xEnd, y0);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255,213,79,0.16)';
+      ctx.fill();
+    }
+
+    // aktueller Punkt
+    const valNow = values(t, p);
+    const yNow = yIn(plot, valNow, min, max);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(xOf(t, p), yNow, 4.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTangent(p) {
+    const plot = PLOTS[0];
+    const rr = ranges(p);
+    const dt = Math.max(0.4, p.T * 0.07);
+    const t1 = Math.max(0, t - dt), t2 = Math.min(p.T, t + dt);
+    const s1 = sOf(t1, p), s2 = sOf(t2, p);
+    const x1 = xOf(t1, p), x2 = xOf(t2, p);
+    const y1 = yIn(plot, s1, rr.sMin, rr.sMax);
+    const y2 = yIn(plot, s2, rr.sMin, rr.sMax);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(230,238,248,0.75)';
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(230,238,248,0.85)';
+    ctx.font = '600 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    const labelX = Math.min(x2 + 8, RIGHT - 178);
+    const labelY = Math.max(plot.top + 14, y2 - 10);
+    const label = `Steigung = v = ${de(vOf(t, p))} m/s`;
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(8,17,31,0.82)';
+    roundRect(labelX - 4, labelY - 11, tw + 8, 16, 4, true, false);
+    ctx.fillStyle = 'rgba(230,238,248,0.92)';
+    ctx.fillText(label, labelX, labelY);
+    ctx.restore();
+  }
+
+  function drawCursor(p) {
+    const x = xOf(t, p);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(230,238,248,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(x, PLOTS[0].top);
+    ctx.lineTo(x, PLOTS[2].bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(230,238,248,0.9)';
+    ctx.font = '600 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`t = ${de(t)} s`, Math.min(RIGHT - 30, Math.max(LEFT + 40, x)), PLOTS[2].bottom + 26);
+    ctx.restore();
+  }
+
+  function drawAxisLabels() {
+    ctx.save();
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Zeit t in s', (LEFT + RIGHT) / 2, H - 18);
+    ctx.restore();
+  }
+
+  function draw() {
+    const p = params();
+    const rr = ranges(p);
+    const sNow = sOf(t, p);
+    const vNow = vOf(t, p);
+
+    drawBackground();
+    drawTrack(p, sNow, vNow);
+
+    drawGraph(PLOTS[0], rr.sMin, rr.sMax, sOf, p, PLOTS[0].color);
+    drawGraph(PLOTS[1], rr.vMin, rr.vMax, vOf, p, PLOTS[1].color);
+    drawGraph(PLOTS[2], rr.aMin, rr.aMax, () => p.a, p, PLOTS[2].color);
+
+    drawTangent(p);
+    drawCursor(p);
+    drawAxisLabels();
+
+    rT.textContent = de(t) + ' s';
+    rS.textContent = de(sNow) + ' m';
+    rV.textContent = de(vNow) + ' m/s';
+    rA.textContent = de(p.a) + ' m/s²';
+  }
+
+  function updateInputs() {
+    const p = params();
+    v0v.textContent = de(p.v0) + ' m/s';
+    av.textContent = de(p.a) + ' m/s²';
+    Tv.textContent = de(p.T, 0) + ' s';
+  }
+
+  function reset() {
+    t = 0;
+    playing = false;
+    playBtn.textContent = '▶ Play';
+    playBtn.classList.remove('on');
+    draw();
+  }
+
+  function setPreset(name) {
+    if (name === 'uniform') { v0El.value = 15; aEl.value = 0; TEl.value = 10; }
+    if (name === 'accel')   { v0El.value = 0;  aEl.value = 2; TEl.value = 10; }
+    if (name === 'brake')   { v0El.value = 20; aEl.value = -4; TEl.value = 5; }
+    if (name === 'back')    { v0El.value = -8; aEl.value = 0; TEl.value = 10; }
+    updateInputs();
+    reset();
+  }
+
+  function pointerTime(ev) {
+    const r = canvas.getBoundingClientRect();
+    const x = (ev.clientX - r.left) * W / r.width;
+    const y = (ev.clientY - r.top) * H / r.height;
+    if (y < PLOTS[0].top - 10 || y > PLOTS[2].bottom + 10) return null;
+    const p = params();
+    return Math.min(p.T, Math.max(0, (x - LEFT) / (RIGHT - LEFT) * p.T));
+  }
+
+  canvas.addEventListener('pointerdown', (ev) => {
+    const nt = pointerTime(ev);
+    if (nt === null) return;
+    dragging = true;
+    t = nt;
+    playing = false;
+    playBtn.textContent = '▶ Play';
+    playBtn.classList.remove('on');
+    canvas.setPointerCapture(ev.pointerId);
+    draw();
+  });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!dragging) return;
+    const nt = pointerTime(ev);
+    if (nt !== null) { t = nt; draw(); }
+  });
+  canvas.addEventListener('pointerup', () => { dragging = false; });
+  canvas.addEventListener('pointercancel', () => { dragging = false; });
+
+  playBtn.addEventListener('click', () => {
+    if (t >= params().T) t = 0;
+    playing = !playing;
+    playBtn.textContent = playing ? '❚❚ Pause' : '▶ Play';
+    playBtn.classList.toggle('on', playing);
+    lastTs = 0;
+  });
+  document.getElementById('resetBtn').addEventListener('click', reset);
+
+  [v0El, aEl, TEl].forEach(el => el.addEventListener('input', () => {
+    updateInputs();
+    const p = params();
+    if (t > p.T) t = p.T;
+    draw();
+  }));
+
+  document.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => setPreset(btn.dataset.preset));
+  });
+
+  function loop(ts) {
+    if (playing) {
+      if (!lastTs) lastTs = ts;
+      const dt = Math.min(0.05, (ts - lastTs) / 1000);
+      lastTs = ts;
+      t += dt;
+      const p = params();
+      if (t >= p.T) { t = p.T; playing = false; playBtn.textContent = '▶ Play'; playBtn.classList.remove('on'); }
+      draw();
+    } else {
+      lastTs = 0;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', () => { fitCanvas(); draw(); });
+  fitCanvas();
+  updateInputs();
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

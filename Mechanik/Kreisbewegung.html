@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kreisbewegung – Zentripetalkraft (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1000px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1000px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/560;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:200px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:66px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 15px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.warn{background:rgba(255,138,101,.14);border-color:rgba(255,138,101,.5);color:var(--warm)}
+  button.warn:hover{background:rgba(255,138,101,.26)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.amber{color:var(--accent2)}
+  .readout .v.pink{color:var(--pink)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Kreisbewegung – <span>Zentripetalkraft</span></h1>
+  <p class="subtitle">gleichförmige Kreisbewegung · Kräfte und Bewegungsrichtung</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Kreisbewegung mit Geschwindigkeits- und Kraftvektoren"></canvas>
+
+    <div class="controls">
+      <label>Radius r <input id="r" type="range" min="0.5" max="2.5" step="0.1" value="1.8"><output id="rv">1,8 m</output></label>
+      <label>Bahngeschwindigkeit v <input id="v" type="range" min="1" max="12" step="0.5" value="6"><output id="vv">6,0 m/s</output></label>
+      <label>Masse m <input id="m" type="range" min="0.5" max="5" step="0.1" value="1.5"><output id="mv">1,5 kg</output></label>
+    </div>
+
+    <div class="controls">
+      <button id="releaseBtn" class="warn">Faden loslassen</button>
+      <button id="resetBtn">⟲ Zurücksetzen</button>
+      <button id="vecBtn" class="on">Kraftpfeile</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Umlaufdauer T</div><div class="v" id="rT">–</div></div>
+      <div><div class="k">Frequenz f</div><div class="v" id="rF">–</div></div>
+      <div><div class="k">Zentripetalbeschl. a<sub>z</sub></div><div class="v pink" id="rA">–</div></div>
+      <div><div class="k">Zentripetalkraft F<sub>z</sub></div><div class="v amber" id="rFz">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Wichtig:</b> Bei einer Kreisbewegung zeigt die resultierende Kraft immer <i>zum Zentrum</i> –
+      sie heißt Zentripetalkraft F<sub>z</sub> = m·v²/r. Die Geschwindigkeit steht senkrecht auf ihr und zeigt
+      tangential. Wird der Faden losgelassen, fällt die Zentripetalkraft weg: Der Körper fliegt <i>geradlinig
+      tangential</i> weiter (Trägheit, 1. Newton'sches Gesetz). Eine nach außen gerichtete „Zentrifugalkraft“
+      gibt es nur in einem mitrotierenden Bezugssystem – nicht im ruhenden Labor.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 560;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const CX = 440, CY = 285;
+  const SCALE = 100;            // Pixel pro Meter
+  const MAX_TRAIL = 900;
+
+  const rEl = document.getElementById('r');
+  const vEl = document.getElementById('v');
+  const mEl = document.getElementById('m');
+  const rv = document.getElementById('rv');
+  const vv = document.getElementById('vv');
+  const mv = document.getElementById('mv');
+  const rT = document.getElementById('rT');
+  const rF = document.getElementById('rF');
+  const rA = document.getElementById('rA');
+  const rFz = document.getElementById('rFz');
+  const releaseBtn = document.getElementById('releaseBtn');
+  const vecBtn = document.getElementById('vecBtn');
+
+  let theta = Math.PI;
+  let released = false;
+  let relPos = null;
+  let relVel = null;
+  let trail = [];
+  let showVectors = true;
+  let lastTs = 0;
+
+  const de = (v, d = 1) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function params() {
+    return {
+      r: parseFloat(rEl.value),
+      v: parseFloat(vEl.value),
+      m: parseFloat(mEl.value)
+    };
+  }
+
+  function radiusPx() { return params().r * SCALE; }
+
+  function ballPos() {
+    if (released && relPos) return {x: relPos.x, y: relPos.y};
+    const R = radiusPx();
+    return {x: CX + R * Math.cos(theta), y: CY + R * Math.sin(theta)};
+  }
+
+  function resetMotion() {
+    theta = Math.PI;
+    released = false;
+    relPos = null;
+    relVel = null;
+    trail = [];
+    releaseBtn.textContent = 'Faden loslassen';
+    updateReadout();
+  }
+
+  function currentTangent() {
+    return {x: -Math.sin(theta), y: Math.cos(theta)};
+  }
+
+  function updateReadout() {
+    const p = params();
+    const T = 2 * Math.PI * p.r / p.v;
+    const f = 1 / T;
+    const a = p.v * p.v / p.r;
+    const Fz = p.m * a;
+    rv.textContent = de(p.r) + ' m';
+    vv.textContent = de(p.v) + ' m/s';
+    mv.textContent = de(p.m) + ' kg';
+    rT.textContent = de(T, 2) + ' s';
+    rF.textContent = de(f, 2) + ' Hz';
+    rA.textContent = de(a, 1) + ' m/s²';
+    rFz.textContent = de(Fz, 1) + ' N';
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(79,195,247,0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y <= H; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawCircle() {
+    const R = radiusPx();
+    ctx.save();
+    // Bewegungsbahn
+    ctx.strokeStyle = 'rgba(79,195,247,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Radius
+    ctx.strokeStyle = 'rgba(138,160,189,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(CX, CY); ctx.lineTo(CX + R, CY); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.75)';
+    ctx.font = '12px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`r = ${de(params().r)} m`, CX + R / 2, CY - 8);
+
+    // Zentrum
+    ctx.fillStyle = '#8aa0bd';
+    ctx.beginPath(); ctx.arc(CX, CY, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(138,160,189,0.5)';
+    ctx.beginPath(); ctx.moveTo(CX - 10, CY); ctx.lineTo(CX + 10, CY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(CX, CY - 10); ctx.lineTo(CX, CY + 10); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTrail() {
+    if (trail.length < 2) return;
+    ctx.save();
+    ctx.lineWidth = 2;
+    for (let i = 1; i < trail.length; i++) {
+      const a = i / trail.length;
+      ctx.strokeStyle = released ? `rgba(255,138,101,${0.08 + a * 0.55})` : `rgba(79,195,247,${0.05 + a * 0.35})`;
+      ctx.beginPath();
+      ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
+      ctx.lineTo(trail[i].x, trail[i].y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawString(pos) {
+    if (released) return;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(230,238,248,0.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(CX, CY); ctx.lineTo(pos.x, pos.y); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBall(pos) {
+    const R = 13;
+    ctx.save();
+    const glow = ctx.createRadialGradient(pos.x - 4, pos.y - 4, 2, pos.x, pos.y, R + 10);
+    glow.addColorStop(0, 'rgba(126,231,135,0.95)');
+    glow.addColorStop(0.45, 'rgba(126,231,135,0.45)');
+    glow.addColorStop(1, 'rgba(126,231,135,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, R + 10, 0, Math.PI * 2); ctx.fill();
+
+    const body = ctx.createRadialGradient(pos.x - 4, pos.y - 5, 2, pos.x, pos.y, R);
+    body.addColorStop(0, '#c9f7cf');
+    body.addColorStop(0.5, '#7ee787');
+    body.addColorStop(1, '#2f9e5f');
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, R, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(201,247,207,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawVector(x, y, dx, dy, color, label, midLabel = false, perp = 1) {
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    const ux = dx / len, uy = dy / len;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + dx, y + dy);
+    ctx.stroke();
+    const ex = x + dx, ey = y + dy;
+    const head = 10;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - ux * head - uy * head * 0.45, ey - uy * head + ux * head * 0.45);
+    ctx.lineTo(ex - ux * head + uy * head * 0.45, ey - uy * head - ux * head * 0.45);
+    ctx.closePath();
+    ctx.fill();
+    if (label) {
+      ctx.font = '600 12px Segoe UI, sans-serif';
+      let tx, ty;
+      if (midLabel) {
+        // Beschriftung neben der Pfeilmitte, versetzt zur Pfeilachse
+        const lx = x + dx * 0.55 - uy * 16 * perp;
+        const ly = y + dy * 0.55 + ux * 16 * perp;
+        ctx.textAlign = Math.abs(ux) > 0.5 ? (ux > 0 ? 'left' : 'right') : 'center';
+        ctx.textBaseline = 'middle';
+        tx = lx + (Math.abs(ux) > 0.5 ? (ux > 0 ? 4 : -4) : 0);
+        ty = ly;
+      } else {
+        ctx.textAlign = ux >= 0 ? 'left' : 'right';
+        ctx.textBaseline = 'alphabetic';
+        tx = ex + ux * 10;
+        ty = ey + uy * 10 + (uy >= 0 ? 4 : -4);
+      }
+      // Lesbarkeits-Hintergrund
+      const tw = ctx.measureText(label).width;
+      const bx = ctx.textAlign === 'right' ? tx - tw - 4 : ctx.textAlign === 'center' ? tx - tw / 2 - 4 : tx - 4;
+      ctx.fillStyle = 'rgba(8,17,31,0.78)';
+      ctx.fillRect(bx, ty - 9, tw + 8, 15);
+      ctx.fillStyle = color;
+      ctx.fillText(label, tx, ty);
+    }
+    ctx.restore();
+  }
+
+  function drawVectors(pos) {
+    if (!showVectors) return;
+    const p = params();
+    const a = p.v * p.v / p.r;
+    const Fz = p.m * a;
+
+    if (!released) {
+      const tan = currentTangent();
+      // Geschwindigkeit tangential
+      const vLen = 14 + p.v * 7;
+      drawVector(pos.x, pos.y, tan.x * vLen, tan.y * vLen, '#ffd54f', `v = ${de(p.v)} m/s`);
+
+      // Zentripetalbeschleunigung zum Zentrum
+      const ux = (CX - pos.x), uy = (CY - pos.y);
+      const ul = Math.hypot(ux, uy) || 1;
+      const aLen = Math.min(80, 14 + a * 1.8);
+      const ax = ux / ul * aLen, ay = uy / ul * aLen;
+      drawVector(pos.x + uy / ul * 5, pos.y - ux / ul * 5, ax, ay, '#f48fb1', `a_z = ${de(a, 1)} m/s²`, true, -1);
+
+      // Zentripetalkraft
+      const fLen = Math.min(92, 16 + Fz * 2.2);
+      const fx = ux / ul * fLen, fy = uy / ul * fLen;
+      drawVector(pos.x - uy / ul * 5, pos.y + ux / ul * 5, fx, fy, '#ff8a65', `F_z = ${de(Fz, 1)} N`, true, 1);
+    } else if (relVel) {
+      const vl = Math.hypot(relVel.x, relVel.y);
+      if (vl > 1) {
+        drawVector(pos.x, pos.y, relVel.x * 0.35, relVel.y * 0.35, '#ffd54f', 'v (tangential)');
+      }
+    }
+  }
+
+  function drawReleaseHint() {
+    if (!released) return;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,138,101,0.95)';
+    ctx.font = '600 15px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Faden losgelassen: keine Zentripetalkraft mehr → geradlinige Bewegung (Zeitlupe)', W / 2, 42);
+    ctx.restore();
+  }
+
+  function drawLegend() {
+    ctx.save();
+    const x = 760, y = 110;
+    ctx.fillStyle = 'rgba(10,21,36,0.65)';
+    ctx.strokeStyle = 'rgba(79,195,247,0.16)';
+    ctx.lineWidth = 1;
+    roundRect(x, y, 210, 170, 12, true, true);
+
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(138,160,189,0.95)';
+    ctx.fillText('Vektoren', x + 14, y + 24);
+
+    const rows = [
+      ['#ffd54f', 'v  tangential'],
+      ['#f48fb1', 'a_z  zum Zentrum'],
+      ['#ff8a65', 'F_z  zum Zentrum']
+    ];
+    rows.forEach(([c, txt], i) => {
+      const yy = y + 52 + i * 30;
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x + 14, yy); ctx.lineTo(x + 42, yy); ctx.stroke();
+      ctx.fillStyle = 'rgba(230,238,248,0.9)';
+      ctx.font = '12px Segoe UI, sans-serif';
+      ctx.fillText(txt, x + 52, yy + 4);
+    });
+
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.fillText('Pfeillängen schematisch', x + 14, y + 146);
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  function draw() {
+    updateReadout();
+    drawBackground();
+    drawCircle();
+    drawTrail();
+    const pos = ballPos();
+    drawString(pos);
+    drawBall(pos);
+    drawVectors(pos);
+    drawReleaseHint();
+    drawLegend();
+  }
+
+  function update(dt) {
+    if (released) {
+      if (!relPos) return;
+      relPos.x += relVel.x * dt;
+      relPos.y += relVel.y * dt;
+      trail.push({x: relPos.x, y: relPos.y});
+    } else {
+      const p = params();
+      const omega = p.v / p.r;
+      theta += omega * dt;
+      const R = radiusPx();
+      trail.push({x: CX + R * Math.cos(theta), y: CY + R * Math.sin(theta)});
+    }
+    if (trail.length > MAX_TRAIL) trail.splice(0, trail.length - MAX_TRAIL);
+  }
+
+  function loop(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min(0.04, (ts - lastTs) / 1000);
+    lastTs = ts;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  releaseBtn.addEventListener('click', () => {
+    if (!released) {
+      const pos = ballPos();
+      const tan = currentTangent();
+      relPos = {x: pos.x, y: pos.y};
+      relVel = {x: tan.x * params().v * SCALE * 0.25, y: tan.y * params().v * SCALE * 0.25};
+      released = true;
+      trail = [{x: pos.x, y: pos.y}];
+      releaseBtn.textContent = 'Faden wieder befestigen';
+    } else {
+      resetMotion();
+    }
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', resetMotion);
+
+  vecBtn.addEventListener('click', () => {
+    showVectors = !showVectors;
+    vecBtn.classList.toggle('on', showVectors);
+    vecBtn.textContent = showVectors ? 'Kraftpfeile' : 'Kraftpfeile aus';
+  });
+
+  [rEl, vEl, mEl].forEach(el => el.addEventListener('input', () => {
+    updateReadout();
+    if (released) resetMotion();
+  }));
+
+  window.addEventListener('resize', () => { fitCanvas(); draw(); });
+  fitCanvas();
+  updateReadout();
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

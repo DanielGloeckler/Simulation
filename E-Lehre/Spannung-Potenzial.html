@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spannung und Potenzial – Stromkreis (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1050px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1050px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/600;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:220px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:70px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 15px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.on{background:rgba(255,213,79,.18);border-color:rgba(255,213,79,.55);color:var(--accent2)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.amber{color:var(--accent2)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Spannung und Potenzial – <span>was „Spannung“ bedeutet</span></h1>
+  <p class="subtitle">elektrischer Stromkreis · Potenzialdifferenz · Energie pro Ladung</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Stromkreis mit Potenzialverlauf"></canvas>
+
+    <div class="controls">
+      <label>Spannung U <input id="U" type="range" min="1.5" max="12" step="0.5" value="6"><output id="Uv">6,0 V</output></label>
+      <label>Widerstand R <input id="R" type="range" min="1" max="100" step="1" value="12"><output id="Rv">12 Ω</output></label>
+      <button id="playBtn" class="on">❚❚ Pause</button>
+      <button id="resetBtn">⟲ Reset</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Stromstärke I = U/R</div><div class="v" id="rI">–</div></div>
+      <div><div class="k">Leistung P = U·I</div><div class="v amber" id="rP">–</div></div>
+      <div><div class="k">Energie pro Ladung</div><div class="v" id="rE">–</div></div>
+      <div><div class="k">Potenzialdifferenz</div><div class="v" id="rU">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Kernidee:</b> Die Spannung U ist kein „Druck“, sondern der <i>Potenzialunterschied</i> zwischen zwei Punkten:
+      U = ΔE/q. Die Batterie „hebt“ jede Ladung q um die Energie q·U an, im Widerstand wird diese Energie als Wärme
+      abgegeben. Die Ladung selbst geht nicht verloren. Im Potenzialdiagramm siehst du: An der Batterie springt das
+      Potenzial um U nach oben, entlang der idealen Leitungen bleibt es konstant und nur im Widerstand fällt es ab.
+      Dargestellt ist die konventionelle Stromrichtung (von + nach −); Elektronen bewegen sich im Metall entgegen.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 600;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+
+  // Schaltkreis
+  const L = 150, Rr = 850, TOP = 120, BOT = 360;
+  const BAT_TOP = 215, BAT_BOT = 265;
+  const RES_L = 450, RES_R = 570;
+
+  // Potenzialdiagramm
+  const GX = 110, GY = 420, GW = 780, GH = 130;
+
+  const UEl = document.getElementById('U');
+  const REl = document.getElementById('R');
+  const Uv = document.getElementById('Uv');
+  const Rv = document.getElementById('Rv');
+  const rI = document.getElementById('rI');
+  const rP = document.getElementById('rP');
+  const rE = document.getElementById('rE');
+  const rU = document.getElementById('rU');
+  const playBtn = document.getElementById('playBtn');
+
+  let running = true;
+  let phase = 0;
+  let lastTs = 0;
+  let particles = [];
+
+  const de = (v, d = 2) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+  // Wegkoordinaten: 0 = Minuspol unten links, im Uhrzeigersinn
+  const SEG = {
+    left: BOT - TOP,      // 240
+    top: Rr - L,          // 700
+    right: BOT - TOP,     // 240
+    bottom: Rr - L        // 700
+  };
+  const TOTAL = SEG.left + SEG.top + SEG.right + SEG.bottom;
+  const BAT_P0 = BOT - BAT_BOT;          // 95
+  const BAT_P1 = BOT - BAT_TOP;          // 145
+  const RES_P0 = SEG.left + (RES_L - L); // 540
+  const RES_P1 = SEG.left + (RES_R - L); // 660
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function params() {
+    return {U: parseFloat(UEl.value), R: parseFloat(REl.value)};
+  }
+
+  function pointAt(p) {
+    p = ((p % TOTAL) + TOTAL) % TOTAL;
+    if (p < SEG.left) return {x: L, y: BOT - p, ang: -Math.PI / 2};
+    p -= SEG.left;
+    if (p < SEG.top) return {x: L + p, y: TOP, ang: 0};
+    p -= SEG.top;
+    if (p < SEG.right) return {x: Rr, y: TOP + p, ang: Math.PI / 2};
+    p -= SEG.right;
+    return {x: Rr - p, y: BOT, ang: Math.PI};
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(79,195,247,0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  function drawWire(x1, y1, x2, y2) {
+    ctx.strokeStyle = 'rgba(230,238,248,0.65)';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(79,195,247,0.18)';
+    ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+
+  function drawCircuit() {
+    // Leitungen
+    drawWire(L, TOP, RES_L, TOP);
+    drawWire(RES_R, TOP, Rr, TOP);
+    drawWire(Rr, TOP, Rr, BOT);
+    drawWire(Rr, BOT, L, BOT);
+    drawWire(L, BOT, L, BAT_BOT);
+    drawWire(L, BAT_TOP, L, TOP);
+
+    // Batterie
+    ctx.save();
+    ctx.strokeStyle = '#ffd54f';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(L - 26, BAT_TOP); ctx.lineTo(L + 26, BAT_TOP); ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(L - 14, BAT_BOT); ctx.lineTo(L + 14, BAT_BOT); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,213,79,0.95)';
+    ctx.font = '700 15px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('+', L + 42, BAT_TOP + 5);
+    ctx.fillText('−', L + 42, BAT_BOT + 6);
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.fillStyle = 'rgba(230,238,248,0.9)';
+    ctx.textAlign = 'right';
+    ctx.fillText('Batterie', L - 36, (BAT_TOP + BAT_BOT) / 2 + 4);
+    ctx.fillText('U', L - 36, (BAT_TOP + BAT_BOT) / 2 + 24);
+    ctx.restore();
+
+    // Widerstand (Zickzack)
+    ctx.save();
+    ctx.strokeStyle = '#ff8a65';
+    ctx.lineWidth = 4;
+    ctx.lineJoin = 'round';
+    const steps = 7;
+    const dx = (RES_R - RES_L) / steps;
+    ctx.beginPath();
+    ctx.moveTo(RES_L, TOP);
+    for (let i = 1; i <= steps; i++) {
+      const x = RES_L + i * dx;
+      const y = TOP + (i % 2 === 0 ? -14 : 14);
+      if (i === steps) ctx.lineTo(x, TOP);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,138,101,0.95)';
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Widerstand R', (RES_L + RES_R) / 2, TOP - 30);
+    ctx.restore();
+
+    // Stromrichtung
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,213,79,0.8)';
+    ctx.fillStyle = 'rgba(255,213,79,0.8)';
+    ctx.lineWidth = 2;
+    const ax = 330, ay = TOP;
+    ctx.beginPath(); ctx.moveTo(ax, ay - 30); ctx.lineTo(ax + 40, ay - 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax + 40, ay - 30); ctx.lineTo(ax + 30, ay - 36); ctx.lineTo(ax + 30, ay - 24); ctx.closePath(); ctx.fill();
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('I', ax + 48, ay - 26);
+    ctx.restore();
+
+    // Potenzialmarken
+    ctx.save();
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(126,231,135,0.95)';
+    ctx.fillText('φ = U', L + 18, TOP + 24);
+    ctx.fillStyle = 'rgba(79,195,247,0.95)';
+    ctx.fillText('φ = 0', Rr - 58, TOP + 24);
+    ctx.fillText('φ = 0', Rr - 58, BOT - 12);
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    ctx.save();
+    for (const p of particles) {
+      const pos = pointAt(p);
+      const nearRes = p > RES_P0 && p < RES_P1;
+      ctx.fillStyle = nearRes ? 'rgba(255,138,101,0.95)' : 'rgba(255,213,79,0.95)';
+      ctx.shadowColor = nearRes ? 'rgba(255,138,101,0.9)' : 'rgba(255,213,79,0.8)';
+      ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#0b1220';
+      ctx.font = '700 9px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('+', pos.x, pos.y + 0.5);
+    }
+    ctx.restore();
+  }
+
+  function drawPotential() {
+    const {U} = params();
+    ctx.save();
+
+    // Panel
+    ctx.fillStyle = 'rgba(10,21,36,0.55)';
+    ctx.strokeStyle = 'rgba(79,195,247,0.14)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(GX, GY, GW, GH); ctx.fill(); ctx.stroke();
+
+    const gx = (p) => GX + p / TOTAL * GW;
+    const gy = (v) => GY + GH - (v / U) * GH;
+
+    // Gitter
+    ctx.strokeStyle = 'rgba(138,160,189,0.12)';
+    for (let i = 0; i <= 4; i++) {
+      const x = GX + GW * i / 4;
+      ctx.beginPath(); ctx.moveTo(x, GY); ctx.lineTo(x, GY + GH); ctx.stroke();
+    }
+    for (let i = 0; i <= 2; i++) {
+      const y = GY + GH * i / 2;
+      ctx.beginPath(); ctx.moveTo(GX, y); ctx.lineTo(GX + GW, y); ctx.stroke();
+    }
+
+    // Batterie- und Widerstandsbereich
+    ctx.fillStyle = 'rgba(255,213,79,0.10)';
+    ctx.fillRect(gx(BAT_P0), GY, gx(BAT_P1) - gx(BAT_P0), GH);
+    ctx.fillStyle = 'rgba(255,138,101,0.12)';
+    ctx.fillRect(gx(RES_P0), GY, gx(RES_P1) - gx(RES_P0), GH);
+
+    // Potenzialkurve: Sprung an der Batterie, Abfall im Widerstand
+    const xBat = (BAT_P0 + BAT_P1) / 2;
+    const xRes = (RES_P0 + RES_P1) / 2;
+    ctx.strokeStyle = '#4fc3f7';
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.moveTo(gx(0), gy(0));
+    ctx.lineTo(gx(xBat), gy(0));
+    ctx.lineTo(gx(xBat), gy(U));
+    ctx.lineTo(gx(xRes), gy(U));
+    ctx.lineTo(gx(xRes), gy(0));
+    ctx.lineTo(gx(TOTAL), gy(0));
+    ctx.stroke();
+
+    // Achsen
+    ctx.strokeStyle = 'rgba(230,238,248,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(GX, GY); ctx.lineTo(GX, GY + GH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(GX, GY + GH); ctx.lineTo(GX + GW, GY + GH); ctx.stroke();
+
+    // Beschriftung
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('0 V', GX - 8, gy(0));
+    ctx.fillText(`${de(U, 1)} V`, GX - 8, gy(U));
+    ctx.fillText(`${de(U / 2, 1)} V`, GX - 8, gy(U / 2));
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('Weg im Stromkreis  →', GX + GW / 2, GY + GH + 24);
+
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Potenzial φ', GX, GY - 10);
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,213,79,0.85)';
+    ctx.fillText('gelb = Batterie', GX + GW - 110, GY - 10);
+    ctx.fillStyle = 'rgba(255,138,101,0.85)';
+    ctx.fillText('orange = Widerstand', GX + GW, GY - 10);
+    ctx.restore();
+  }
+
+  function updateReadout() {
+    const {U, R} = params();
+    const I = U / R;
+    const P = U * I;
+    Uv.textContent = de(U, 1) + ' V';
+    Rv.textContent = de(R, 0) + ' Ω';
+    rI.textContent = de(I, 3) + ' A';
+    rP.textContent = de(P, 2) + ' W';
+    rE.textContent = de(U, 1) + ' J/C';
+    rU.textContent = de(U, 1) + ' V';
+  }
+
+  function step(dt) {
+    const {U, R} = params();
+    const I = U / R;
+    const speed = 55 + I * 95; // px/s, schematisch
+    phase = (phase + speed * dt) % TOTAL;
+    particles = [];
+    const n = 16;
+    for (let i = 0; i < n; i++) particles.push((phase + i * TOTAL / n) % TOTAL);
+  }
+
+  function draw() {
+    drawBackground();
+    drawCircuit();
+    drawParticles();
+    drawPotential();
+    updateReadout();
+  }
+
+  function loop(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    if (running) step(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  playBtn.addEventListener('click', () => {
+    running = !running;
+    playBtn.textContent = running ? '❚❚ Pause' : '▶ Play';
+    playBtn.classList.toggle('on', running);
+  });
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    phase = 0;
+    step(0);
+  });
+  [UEl, REl].forEach(el => el.addEventListener('input', () => { step(0); updateReadout(); }));
+
+  window.addEventListener('resize', () => { fitCanvas(); draw(); });
+  fitCanvas();
+  step(0);
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
