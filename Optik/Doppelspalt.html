@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doppelspalt und Gitter – Interferenz (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1000px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1000px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/560;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:200px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:66px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 15px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.on{background:rgba(79,195,247,.32);border-color:rgba(79,195,247,.75)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.amber{color:var(--accent2)}
+  .readout .v.pink{color:var(--pink)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Doppelspalt und Gitter – <span>Interferenz</span></h1>
+  <p class="subtitle">Gangunterschied · Intensitätsverteilung · Beugung am Einzelspalt</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Interferenzmuster und Intensitätsverteilung am Doppelspalt"></canvas>
+
+    <div class="controls">
+      <label>Wellenlänge λ <input id="lam" type="range" min="400" max="700" step="5" value="633"><output id="lamv">633 nm</output></label>
+      <label>Spaltabstand d <input id="dd" type="range" min="0.2" max="2" step="0.01" value="0.5"><output id="ddv">0,50 mm</output></label>
+      <label>Spaltbreite a <input id="aa" type="range" min="0.02" max="0.4" step="0.01" value="0.08"><output id="aav">0,08 mm</output></label>
+      <label>Schirmabstand L <input id="ll" type="range" min="0.5" max="2" step="0.05" value="1"><output id="llv">1,00 m</output></label>
+    </div>
+
+    <div class="controls" id="nRow">
+      <button data-n="2" class="on">Doppelspalt</button>
+      <button data-n="3">3 Spalte</button>
+      <button data-n="5">Gitter N=5</button>
+      <button data-n="10">N=10</button>
+      <button data-n="20">N=20</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Abstand 1. Maximum</div><div class="v amber" id="rDx">–</div></div>
+      <div><div class="k" style="text-transform:none">Winkel θ₁</div><div class="v" id="rTh">–</div></div>
+      <div><div class="k">Maxima im Ausschnitt</div><div class="v" id="rK">–</div></div>
+      <div><div class="k">Verhältnis d/a</div><div class="v pink" id="rDa">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Maxima:</b> Verstärkung tritt auf, wenn der Gangunterschied ein Vielfaches der Wellenlänge ist:
+      d·sin θ<sub>k</sub> = k·λ. Für kleine Winkel folgt der Abstand benachbarter Maxima auf dem Schirm
+      Δx = λ·L/d. <b>Einzelspalt:</b> Die endliche Breite a der Spalte moduliert die Helligkeit; Minima
+      liegen bei a·sin θ<sub>m</sub> = m·λ. Ist d/a eine ganze Zahl, fallen Hauptmaxima mit diesen Minima
+      zusammen („fehlende Ordnungen“). Mehr Spalte (Gitter) machen die Maxima schmaler und heller, weil
+      sich die Wellen nur in unmittelbarer Nähe der Verstärkungsrichtung konstruktiv überlagern.
+      Das Schirmbild ist hier nicht maßstäblich in der Größe, die Winkel sind korrekt berechnet.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 560;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+
+  const lamEl = document.getElementById('lam');
+  const ddEl = document.getElementById('dd');
+  const aaEl = document.getElementById('aa');
+  const llEl = document.getElementById('ll');
+  const lamv = document.getElementById('lamv');
+  const ddv = document.getElementById('ddv');
+  const aav = document.getElementById('aav');
+  const llv = document.getElementById('llv');
+  const rDx = document.getElementById('rDx');
+  const rTh = document.getElementById('rTh');
+  const rK = document.getElementById('rK');
+  const rDa = document.getElementById('rDa');
+
+  const BAR_X0 = 60, BAR_X1 = 940;
+  const BAR_Y = 88, BAR_H = 46;
+  const PLOT_Y0 = 176, PLOT_Y1 = 310;
+  const GEO_Y = 430;
+
+  let N = 2;
+  let samples = [];       // {x, I}
+  let xMaxMm = 10;
+  let iMax = 1;
+
+  const de = (v, d = 2) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function params() {
+    const lam = parseFloat(lamEl.value) * 1e-9;
+    const d = parseFloat(ddEl.value) * 1e-3;
+    const a = parseFloat(aaEl.value) * 1e-3;
+    const L = parseFloat(llEl.value);
+    return { lam, d, a, L, dx: lam * L / d };
+  }
+
+  function wavelengthToRGB(wl) {
+    let r = 0, g = 0, b = 0;
+    if (wl >= 380 && wl < 440) { r = -(wl - 440) / 60; b = 1; }
+    else if (wl < 490) { g = (wl - 440) / 50; b = 1; }
+    else if (wl < 510) { g = 1; b = -(wl - 510) / 20; }
+    else if (wl < 580) { r = (wl - 510) / 70; g = 1; }
+    else if (wl < 645) { r = 1; g = -(wl - 645) / 65; }
+    else if (wl <= 780) { r = 1; }
+    let f = 1;
+    if (wl >= 380 && wl < 420) f = 0.3 + 0.7 * (wl - 380) / 40;
+    else if (wl > 700 && wl <= 780) f = 0.3 + 0.7 * (780 - wl) / 80;
+    const gamma = 0.8;
+    return [
+      Math.round(255 * Math.pow(r * f, gamma)),
+      Math.round(255 * Math.pow(g * f, gamma)),
+      Math.round(255 * Math.pow(b * f, gamma))
+    ];
+  }
+
+  function intAt(sinT, p) {
+    const beta = Math.PI * p.a * sinT / p.lam;
+    const gamma = Math.PI * p.d * sinT / p.lam;
+    const env = Math.abs(beta) < 1e-12 ? 1 : Math.pow(Math.sin(beta) / beta, 2);
+    const den = N * Math.sin(gamma);
+    const fac = Math.abs(den) < 1e-12 ? 1 : Math.pow(Math.sin(N * gamma) / den, 2);
+    return env * fac;
+  }
+
+  function refresh() {
+    const p = params();
+    // Ausschnitt: ca. 8 Maxima, mindestens 4 mm, höchstens 25 mm
+    xMaxMm = Math.min(25, Math.max(4, p.dx * 1000 * 8));
+    const n = 900;
+    samples = [];
+    iMax = 0;
+    for (let i = 0; i < n; i++) {
+      const xm = (i / (n - 1) * 2 - 1) * xMaxMm;
+      const sinT = Math.sin(Math.atan(xm / 1000 / p.L));
+      const val = intAt(sinT, p);
+      samples.push({ x: xm, I: val });
+      if (val > iMax) iMax = val;
+    }
+    // readouts
+    const th1 = Math.asin(Math.min(1, p.lam / p.d));
+    const thetaMax = Math.atan(xMaxMm / 1000 / p.L);
+    const kMax = Math.floor(p.d * Math.sin(thetaMax) / p.lam);
+    rDx.textContent = de(p.dx * 1000, 2) + ' mm';
+    rTh.textContent = de(th1 * 180 / Math.PI, 3) + '°';
+    rK.textContent = String(2 * kMax + 1);
+    rDa.textContent = de(p.d / p.a, 1);
+    draw();
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(79,195,247,0.04)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+  }
+
+  function xPix(xm) {
+    return BAR_X0 + ((xm + xMaxMm) / (2 * xMaxMm)) * (BAR_X1 - BAR_X0);
+  }
+
+  function drawScreen() {
+    const p = params();
+    const rgb = wavelengthToRGB(parseFloat(lamEl.value));
+
+    ctx.fillStyle = '#04080f';
+    ctx.fillRect(BAR_X0, BAR_Y, BAR_X1 - BAR_X0, BAR_H);
+
+    for (let px = BAR_X0; px < BAR_X1; px++) {
+      const xm = (px - BAR_X0) / (BAR_X1 - BAR_X0) * 2 * xMaxMm - xMaxMm;
+      const sinT = Math.sin(Math.atan(xm / 1000 / p.L));
+      const I = Math.min(1, intAt(sinT, p) / iMax);
+      const a = Math.pow(I, 0.55);
+      ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${0.06 + 0.94 * a})`;
+      ctx.fillRect(px, BAR_Y, 1.2, BAR_H);
+    }
+
+    ctx.strokeStyle = 'rgba(230,238,248,0.22)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(BAR_X0, BAR_Y, BAR_X1 - BAR_X0, BAR_H);
+
+    ctx.fillStyle = 'rgba(230,238,248,0.85)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Schirmbild', BAR_X0, BAR_Y - 12);
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Licht der Wellenlänge ' + de(parseFloat(lamEl.value), 0) + ' nm', BAR_X1, BAR_Y - 12);
+
+    // 0. Ordnung
+    const x0 = xPix(0);
+    ctx.strokeStyle = 'rgba(230,238,248,0.35)';
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(x0, BAR_Y - 4); ctx.lineTo(x0, BAR_Y + BAR_H + 4); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(230,238,248,0.7)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('0', x0, BAR_Y + BAR_H + 15);
+  }
+
+  function drawPlot() {
+    const p = params();
+
+    // Achsen
+    ctx.strokeStyle = 'rgba(138,160,189,0.35)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(BAR_X0, PLOT_Y1); ctx.lineTo(BAR_X1, PLOT_Y1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(BAR_X0, PLOT_Y0); ctx.lineTo(BAR_X0, PLOT_Y1); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.75)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.save();
+    ctx.translate(BAR_X0 - 10, (PLOT_Y0 + PLOT_Y1) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Intensität', 0, 0);
+    ctx.restore();
+
+    // Fläche
+    const grad = ctx.createLinearGradient(0, PLOT_Y0, 0, PLOT_Y1);
+    grad.addColorStop(0, 'rgba(79,195,247,0.35)');
+    grad.addColorStop(1, 'rgba(79,195,247,0.02)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(BAR_X0, PLOT_Y1);
+    samples.forEach(s => {
+      const y = PLOT_Y1 - (Math.min(1, s.I / iMax)) * (PLOT_Y1 - PLOT_Y0);
+      ctx.lineTo(xPix(s.x), y);
+    });
+    ctx.lineTo(BAR_X1, PLOT_Y1);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#4fc3f7';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    samples.forEach((s, i) => {
+      const y = PLOT_Y1 - (Math.min(1, s.I / iMax)) * (PLOT_Y1 - PLOT_Y0);
+      if (i === 0) ctx.moveTo(xPix(s.x), y); else ctx.lineTo(xPix(s.x), y);
+    });
+    ctx.stroke();
+
+    // Maxima markieren
+    const sinTMax = Math.sin(Math.atan(xMaxMm / 1000 / p.L));
+    const kMax = Math.floor(p.d * sinTMax / p.lam);
+    const yLab = PLOT_Y0 - 10;
+    for (let k = -kMax; k <= kMax; k++) {
+      const sT = k * p.lam / p.d;
+      if (sT > 1 || sT < -1) continue;
+      const xm = Math.tan(Math.asin(sT)) * p.L * 1000;
+      if (Math.abs(xm) > xMaxMm) continue;
+      const x = xPix(xm);
+      const I = Math.min(1, intAt(sT, p) / iMax);
+      const y = PLOT_Y1 - I * (PLOT_Y1 - PLOT_Y0);
+      ctx.fillStyle = 'rgba(255,213,79,0.9)';
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+      if (Math.abs(k) <= 2 && kMax <= 8) {
+        ctx.fillStyle = 'rgba(255,213,79,0.9)';
+        ctx.font = '600 11px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(k === 0 ? '0' : String(k), x, yLab);
+      }
+    }
+
+    // x-Achse beschriften
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    for (let i = -2; i <= 2; i++) {
+      const xm = i * xMaxMm / 2;
+      const x = xPix(xm);
+      ctx.strokeStyle = 'rgba(138,160,189,0.25)';
+      ctx.beginPath(); ctx.moveTo(x, PLOT_Y1); ctx.lineTo(x, PLOT_Y1 + 4); ctx.stroke();
+      ctx.fillText(de(xm, 1), x, PLOT_Y1 + 17);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('Ort auf dem Schirm in mm', BAR_X1, PLOT_Y1 + 35);
+
+    // Maßstab
+    const mmPerPx = 2 * xMaxMm / (BAR_X1 - BAR_X0);
+    const cands = [0.5, 1, 2, 5, 10];
+    let bar = { mm: 1, px: 1 / mmPerPx };
+    for (const c of cands) {
+      const px = c / mmPerPx;
+      if (px >= 55 && px <= 150) { bar = { mm: c, px }; break; }
+    }
+    ctx.strokeStyle = 'rgba(230,238,248,0.7)';
+    ctx.lineWidth = 2;
+    const bx = BAR_X0, by = PLOT_Y1 + 56;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + bar.px, by); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx, by - 4); ctx.lineTo(bx, by + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx + bar.px, by - 4); ctx.lineTo(bx + bar.px, by + 4); ctx.stroke();
+    ctx.fillStyle = 'rgba(230,238,248,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(de(bar.mm, bar.mm < 1 ? 1 : 0) + ' mm', bx + bar.px + 8, by + 4);
+  }
+
+  function drawGeometry() {
+    const p = params();
+    const rgb = wavelengthToRGB(parseFloat(lamEl.value));
+    const laserX = 64, slitX = 286, screenX = 704;
+    const yMid = GEO_Y;
+
+    // Laser
+    ctx.fillStyle = 'rgba(30,45,70,0.9)';
+    ctx.strokeStyle = 'rgba(138,160,189,0.5)';
+    ctx.lineWidth = 1.2;
+    roundRect(laserX - 18, yMid - 14, 62, 28, 6, true, true);
+    ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    ctx.fillRect(laserX + 38, yMid - 5, 5, 10);
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Laser', laserX + 10, yMid + 34);
+
+    // Strahl zum Doppelspalt
+    ctx.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.55)`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(laserX + 44, yMid); ctx.lineTo(slitX, yMid); ctx.stroke();
+
+    // Blende mit Spalten
+    ctx.strokeStyle = 'rgba(230,238,248,0.75)';
+    ctx.lineWidth = 4;
+    const drawCount = Math.min(N, 9);
+    const spacing = N === 2 ? 26 : Math.max(5, 70 / (drawCount - 1));
+    const gaps = [];
+    for (let i = 0; i < drawCount; i++) {
+      gaps.push(yMid + (i - (drawCount - 1) / 2) * spacing);
+    }
+    if (N === 2) {
+      ctx.beginPath(); ctx.moveTo(slitX, yMid - 74); ctx.lineTo(slitX, gaps[0] - 5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(slitX, gaps[0] + 5); ctx.lineTo(slitX, gaps[1] - 5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(slitX, gaps[1] + 5); ctx.lineTo(slitX, yMid + 74); ctx.stroke();
+    } else {
+      let yPrev = yMid - 74;
+      gaps.forEach(gy => {
+        ctx.beginPath(); ctx.moveTo(slitX, yPrev); ctx.lineTo(slitX, gy - 1.6); ctx.stroke();
+        yPrev = gy + 1.6;
+      });
+      ctx.beginPath(); ctx.moveTo(slitX, yPrev); ctx.lineTo(slitX, yMid + 74); ctx.stroke();
+    }
+
+    // Spaltabstand d
+    const yA = gaps[0], yB = gaps[gaps.length - 1];
+    const bx = slitX + 36;
+    ctx.strokeStyle = 'rgba(255,213,79,0.85)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(bx, yA); ctx.lineTo(bx, yB); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - 5, yA); ctx.lineTo(bx + 5, yA); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - 5, yB); ctx.lineTo(bx + 5, yB); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,213,79,0.95)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('d = ' + de(parseFloat(ddEl.value), 2) + ' mm', bx + 10, (yA + yB) / 2 + 4);
+
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(N === 2 ? 'Doppelspalt' : 'Gitter (N = ' + N + ')', slitX, yMid + 92);
+
+    // Schirm
+    ctx.strokeStyle = 'rgba(230,238,248,0.55)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(screenX, yMid - 80); ctx.lineTo(screenX, yMid + 80); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Schirm', screenX + 8, yMid - 62);
+
+    // Strahlenfächer
+    const targets = [yMid - 46, yMid, yMid + 46];
+    ctx.lineWidth = 1;
+    gaps.slice(0, 4).forEach(gy => {
+      targets.forEach(ty => {
+        ctx.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.26)`;
+        ctx.beginPath(); ctx.moveTo(slitX, gy); ctx.lineTo(screenX, ty); ctx.stroke();
+      });
+    });
+
+    // L
+    const yL = yMid + 104;
+    ctx.strokeStyle = 'rgba(138,160,189,0.55)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(slitX, yL); ctx.lineTo(screenX, yL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(slitX, yL - 4); ctx.lineTo(slitX, yL + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(screenX, yL - 4); ctx.lineTo(screenX, yL + 4); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('L = ' + de(p.L, 2) + ' m (schematisch)', (slitX + screenX) / 2, yL - 8);
+  }
+
+  function roundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  function draw() {
+    drawBackground();
+    drawScreen();
+    drawPlot();
+    drawGeometry();
+  }
+
+  document.querySelectorAll('#nRow button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#nRow button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      N = parseInt(btn.dataset.n, 10);
+      refresh();
+    });
+  });
+
+  [lamEl, ddEl, aaEl, llEl].forEach(el => el.addEventListener('input', () => {
+    lamv.textContent = de(parseFloat(lamEl.value), 0) + ' nm';
+    ddv.textContent = de(parseFloat(ddEl.value), 2) + ' mm';
+    aav.textContent = de(parseFloat(aaEl.value), 2) + ' mm';
+    llv.textContent = de(parseFloat(llEl.value), 2) + ' m';
+    refresh();
+  }));
+
+  window.addEventListener('resize', () => { fitCanvas(); refresh(); });
+  fitCanvas();
+  refresh();
+})();
+</script>
+</body>
+</html>

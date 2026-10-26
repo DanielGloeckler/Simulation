@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energieniveaus des Wasserstoffs – Linienspektren (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1000px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1000px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/560;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:200px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:66px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 15px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.on{background:rgba(79,195,247,.32);border-color:rgba(79,195,247,.75)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.amber{color:var(--accent2)}
+  .readout .v.pink{color:var(--pink)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Energieniveaus des Wasserstoffs – <span>Linienspektren</span></h1>
+  <p class="subtitle">Bohr’sche Frequenzbedingung · Emissions- und Absorptionslinien · Serien</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Energieniveauschema des Wasserstoffs mit Übergängen und Spektrallinien"></canvas>
+
+    <div class="controls">
+      <label><span>oberes Niveau n<sub>o</sub></span> <input id="no" type="range" min="2" max="5" step="1" value="3"><output id="nov">3</output></label>
+      <label><span>unteres Niveau n<sub>u</sub></span> <input id="nu" type="range" min="1" max="5" step="1" value="2"><output id="nuv">2</output></label>
+    </div>
+
+    <div class="controls">
+      <button id="emBtn" class="on">Emission</button>
+      <button id="abBtn">Absorption</button>
+      <button id="lyBtn">Lyman-Serie</button>
+      <button id="baBtn">Balmer-Serie</button>
+      <button id="paBtn">Paschen-Serie</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k" style="text-transform:none">Energiedifferenz ΔE</div><div class="v amber" id="rDE">–</div></div>
+      <div><div class="k" style="text-transform:none">Wellenlänge λ</div><div class="v" id="rLam">–</div></div>
+      <div><div class="k" style="text-transform:none">Frequenz f</div><div class="v" id="rF">–</div></div>
+      <div><div class="k">Serie</div><div class="v pink" id="rSer">–</div></div>
+      <div><div class="k">Bereich</div><div class="v" id="rRange">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Bohr’sche Frequenzbedingung:</b> Ein Photon wird beim Übergang zwischen zwei diskreten Niveaus
+      mit der Energie ΔE = h·f = E<sub>o</sub> − E<sub>u</sub> absorbiert oder emittiert. Für das
+      Wasserstoffatom gilt E<sub>n</sub> = −13,6 eV / n². Die Übergänge auf n = 1 bilden die
+      Lyman-Serie (UV), auf n = 2 die Balmer-Serie (überwiegend sichtbar, z. B. Hα bei 656 nm) und
+      auf n = 3 die Paschen-Serie (IR). Nach oben rücken die Niveaus immer dichter zusammen – die
+      Linien einer Serie laufen deshalb gegen eine Seriengrenze. Die Höhenachse ist gestaucht
+      dargestellt, damit auch die hohen Niveaus getrennt sichtbar bleiben; die Energiewerte selbst
+      sind exakt.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 560;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+
+  const noEl = document.getElementById('no');
+  const nuEl = document.getElementById('nu');
+  const nov = document.getElementById('nov');
+  const nuv = document.getElementById('nuv');
+  const rDE = document.getElementById('rDE');
+  const rLam = document.getElementById('rLam');
+  const rF = document.getElementById('rF');
+  const rSer = document.getElementById('rSer');
+  const rRange = document.getElementById('rRange');
+  const emBtn = document.getElementById('emBtn');
+  const abBtn = document.getElementById('abBtn');
+
+  const HC = 1239.841984;   // eV nm
+  const H_EV = 4.135667696e-15; // eV s
+  const E1 = -13.6;
+
+  const LX0 = 172, LX1 = 502;
+  const LY0 = 112, LY1 = 488;
+
+  let emission = true;
+
+  const de = (v, d = 2) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function En(n) { return -13.6 / (n * n); }
+
+  function yOf(n) {
+    const u = (En(n) - E1) / (0 - E1);     // 0 … 1
+    return LY1 - Math.pow(u, 2) * (LY1 - LY0);
+  }
+
+  function wavelengthToRGB(wl) {
+    if (wl < 380) return [148, 92, 255];
+    if (wl > 750) return [150, 35, 35];
+    let r = 0, g = 0, b = 0;
+    if (wl < 440) { r = -(wl - 440) / 60; b = 1; }
+    else if (wl < 490) { g = (wl - 440) / 50; b = 1; }
+    else if (wl < 510) { g = 1; b = -(wl - 510) / 20; }
+    else if (wl < 580) { r = (wl - 510) / 70; g = 1; }
+    else if (wl < 645) { r = 1; g = -(wl - 645) / 65; }
+    else { r = 1; }
+    let f = 1;
+    if (wl < 420) f = 0.3 + 0.7 * (wl - 380) / 40;
+    else if (wl > 700) f = 0.3 + 0.7 * (780 - wl) / 80;
+    const gamma = 0.8;
+    return [
+      Math.round(255 * Math.pow(r * f, gamma)),
+      Math.round(255 * Math.pow(g * f, gamma)),
+      Math.round(255 * Math.pow(b * f, gamma))
+    ];
+  }
+
+  function currentTransition() {
+    let no = parseInt(noEl.value, 10);
+    let nu = parseInt(nuEl.value, 10);
+    if (nu >= no) { nu = no - 1; nuEl.value = nu; }
+    const dE = En(no) - En(nu);
+    const lam = HC / dE;
+    return { no, nu, dE, lam, f: dE / H_EV };
+  }
+
+  function updateReadout() {
+    const t = currentTransition();
+    nov.textContent = String(t.no);
+    nuv.textContent = String(t.nu);
+    rDE.textContent = de(t.dE, 2) + ' eV';
+    rLam.textContent = de(t.lam, 0) + ' nm';
+    rF.textContent = de(t.f / 1e12, 0) + ' THz';
+    const series = { 1:'Lyman', 2:'Balmer', 3:'Paschen', 4:'Brackett', 5:'Pfund' };
+    rSer.textContent = series[t.nu] || ('n = ' + t.nu);
+    rRange.textContent = t.lam < 380 ? 'UV' : t.lam > 750 ? 'Infrarot' : 'sichtbar';
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(79,195,247,0.04)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+  }
+
+  function drawLevels() {
+    const t = currentTransition();
+
+    // Achse
+    ctx.strokeStyle = 'rgba(138,160,189,0.5)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(126, LY1 + 6); ctx.lineTo(126, LY0 - 12); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(126, LY0 - 16); ctx.lineTo(122, LY0 - 6); ctx.lineTo(130, LY0 - 6);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(138,160,189,0.5)';
+    ctx.fill();
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('E', 126, LY0 - 24);
+
+    // Ionisationsgrenze
+    ctx.strokeStyle = 'rgba(138,160,189,0.22)';
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(LX0, LY0); ctx.lineTo(LX1, LY0); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(138,160,189,0.65)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('0 eV  (Ionisation)', LX1 + 8, LY0 + 3);
+
+    // Niveaus
+    for (let n = 1; n <= 5; n++) {
+      const y = yOf(n);
+      const isUp = n === t.no;
+      const isLow = n === t.nu;
+      let color = 'rgba(79,195,247,0.55)';
+      let width = 1.8;
+      if (isUp || isLow) { color = isUp ? '#ffd54f' : '#7ee787'; width = 3; }
+
+      // Verbindung zur Achse
+      ctx.strokeStyle = 'rgba(138,160,189,0.1)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(126, y); ctx.lineTo(LX0, y); ctx.stroke();
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath(); ctx.moveTo(LX0, y); ctx.lineTo(LX1, y); ctx.stroke();
+
+      ctx.fillStyle = isUp ? '#ffd54f' : isLow ? '#7ee787' : 'rgba(230,238,248,0.8)';
+      ctx.font = (isUp || isLow ? '700 ' : '') + '11px Segoe UI, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('n = ' + n, LX0 - 10, y + 4);
+      ctx.textAlign = 'left';
+      ctx.fillText(de(En(n), 2) + ' eV', LX1 + 8, y + 4);
+    }
+
+    // gestauchte Achse kennzeichnen
+    ctx.fillStyle = 'rgba(138,160,189,0.6)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Höhenachse gestaucht', 36, 66);
+  }
+
+  function drawTransition() {
+    const t = currentTransition();
+    const yUp = yOf(t.no);
+    const yLow = yOf(t.nu);
+    const xa = 352;
+    const xw = 404;
+    const rgb = wavelengthToRGB(t.lam);
+
+    // Pfeil
+    ctx.strokeStyle = emission ? '#7ee787' : '#4fc3f7';
+    ctx.fillStyle = emission ? '#7ee787' : '#4fc3f7';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(xa, yUp); ctx.lineTo(xa, yLow); ctx.stroke();
+    const dir = emission ? 1 : -1;   // 1: Pfeil nach unten
+    const yTip = emission ? yLow : yUp;
+    ctx.beginPath();
+    ctx.moveTo(xa, yTip);
+    ctx.lineTo(xa - 6, yTip - dir * 11);
+    ctx.lineTo(xa + 6, yTip - dir * 11);
+    ctx.closePath(); ctx.fill();
+
+    // Photon
+    const yA = Math.min(yUp, yLow), yB = Math.max(yUp, yLow);
+    ctx.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const periods = 6;
+    for (let i = 0; i <= 90; i++) {
+      const f = i / 90;
+      const x = xw + Math.sin(f * periods * Math.PI * 2) * 9;
+      const y = yA + f * (yB - yA);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Photonpfeil
+    const yEnd = emission ? yB : yA;
+    const yStart = emission ? yA : yB;
+    ctx.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    ctx.lineWidth = 1.6;
+    const ax = xw + 22;
+    ctx.beginPath(); ctx.moveTo(ax, yStart); ctx.lineTo(ax, yEnd); ctx.stroke();
+    const s = emission ? 1 : -1;
+    ctx.beginPath();
+    ctx.moveTo(ax, yEnd + s * 2);
+    ctx.lineTo(ax - 4, yEnd - s * 7);
+    ctx.lineTo(ax + 4, yEnd - s * 7);
+    ctx.closePath(); ctx.fill();
+
+    // Beschriftung
+    const midY = (yUp + yLow) / 2;
+    ctx.fillStyle = 'rgba(230,238,248,0.9)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('ΔE = ' + de(t.dE, 2) + ' eV', xa - 12, midY - 6);
+
+    ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('λ = ' + de(t.lam, 0) + ' nm', xw + 40, midY + 4);
+
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.fillText(emission ? 'Photon emittiert' : 'Photon absorbiert', xw + 40, midY + 22);
+  }
+
+  // ---------- Spektrum ----------
+  const SX0 = 598, SX1 = 952, SY0 = 356, SY1 = 400;
+  const LMIN = 80, LMAX = 2200;
+
+  function lamX(lam) {
+    const u = (Math.log10(lam) - Math.log10(LMIN)) / (Math.log10(LMAX) - Math.log10(LMIN));
+    return SX0 + u * (SX1 - SX0);
+  }
+
+  function drawSpectrum() {
+    const t = currentTransition();
+
+    // Titel
+    ctx.fillStyle = 'rgba(230,238,248,0.85)';
+    ctx.font = '600 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Linienspektrum des Wasserstoffs', SX0, SY0 - 30);
+    ctx.fillStyle = 'rgba(138,160,189,0.65)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('logarithmische Wellenlängenskala', SX1, SY0 - 30);
+
+    // Hintergrund
+    ctx.fillStyle = '#04080f';
+    ctx.fillRect(SX0, SY0, SX1 - SX0, SY1 - SY0);
+
+    // sichtbarer Bereich
+    const vx0 = lamX(380), vx1 = lamX(750);
+    const grad = ctx.createLinearGradient(vx0, 0, vx1, 0);
+    for (let i = 0; i <= 12; i++) {
+      const wl = 380 + (750 - 380) * i / 12;
+      const c = wavelengthToRGB(wl);
+      grad.addColorStop(i / 12, `rgb(${c[0]},${c[1]},${c[2]})`);
+    }
+    ctx.fillStyle = grad;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(vx0, SY0, vx1 - vx0, SY1 - SY0);
+    ctx.globalAlpha = 1;
+
+    // alle Linien
+    for (let nu = 1; nu <= 4; nu++) {
+      for (let no = nu + 1; no <= 8; no++) {
+        const dE = En(no) - En(nu);
+        const lam = HC / dE;
+        if (lam < LMIN || lam > LMAX) continue;
+        const x = lamX(lam);
+        const isSel = (no === t.no && nu === t.nu);
+        const c = wavelengthToRGB(lam);
+        ctx.strokeStyle = isSel ? `rgb(${c[0]},${c[1]},${c[2]})` : `rgba(${c[0]},${c[1]},${c[2]},0.35)`;
+        ctx.lineWidth = isSel ? 3 : 1.2;
+        ctx.beginPath(); ctx.moveTo(x, SY0 + 4); ctx.lineTo(x, SY1 - 4); ctx.stroke();
+      }
+    }
+
+    // Serien beschriften
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    const labels = [
+      { nu: 1, name: 'Lyman', lam: 95 },
+      { nu: 2, name: 'Balmer', lam: 370 },
+      { nu: 3, name: 'Paschen', lam: 830 }
+    ];
+    labels.forEach(l => {
+      const x = lamX(l.lam);
+      ctx.fillStyle = l.nu === t.nu ? 'rgba(255,213,79,0.95)' : 'rgba(138,160,189,0.7)';
+      ctx.fillText(l.name, x, SY0 - 10);
+    });
+
+    // Achse
+    ctx.strokeStyle = 'rgba(138,160,189,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(SX0, SY1 + 8); ctx.lineTo(SX1, SY1 + 8); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    [100, 200, 500, 1000, 2000].forEach(lm => {
+      const x = lamX(lm);
+      ctx.beginPath(); ctx.moveTo(x, SY1 + 8); ctx.lineTo(x, SY1 + 12); ctx.stroke();
+      ctx.fillText(String(lm), x, SY1 + 25);
+    });
+    ctx.textAlign = 'right';
+    ctx.fillText('λ in nm', SX1, SY1 + 40);
+
+    // Markierung der aktuellen Linie
+    const xNow = lamX(t.lam);
+    if (xNow >= SX0 && xNow <= SX1) {
+      ctx.fillStyle = 'rgba(255,213,79,0.95)';
+      ctx.beginPath();
+      ctx.moveTo(xNow, SY1 + 8);
+      ctx.lineTo(xNow - 5, SY1 + 16);
+      ctx.lineTo(xNow + 5, SY1 + 16);
+      ctx.closePath(); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(255,138,101,0.9)';
+      ctx.font = '10px Segoe UI, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('λ außerhalb des Ausschnitts', SX1, SY1 + 44);
+    }
+  }
+
+  function drawFormulaBox() {
+    const x = 598, y = 96, w = 354, h = 118;
+    ctx.fillStyle = 'rgba(10,21,36,0.65)';
+    ctx.strokeStyle = 'rgba(79,195,247,0.18)';
+    ctx.lineWidth = 1;
+    roundRect(x, y, w, h, 12, true, true);
+
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '600 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Wasserstoffatom', x + 16, y + 24);
+
+    ctx.fillStyle = 'rgba(230,238,248,0.95)';
+    ctx.font = '600 14px Segoe UI, sans-serif';
+    ctx.fillText('E_n = −13,6 eV / n²', x + 16, y + 50);
+    ctx.fillStyle = 'rgba(255,213,79,0.95)';
+    ctx.fillText('ΔE = h · f', x + 16, y + 74);
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.fillText('E_n < 0: gebundene Zustände', x + 16, y + 98);
+  }
+
+  function roundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  function drawLimitsBox() {
+    const x = 598, y = 452, w = 354, h = 76;
+    ctx.fillStyle = 'rgba(10,21,36,0.55)';
+    ctx.strokeStyle = 'rgba(138,160,189,0.16)';
+    ctx.lineWidth = 1;
+    roundRect(x, y, w, h, 10, true, true);
+
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '600 10px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Seriengrenzen (n → ∞)', x + 14, y + 18);
+
+    const rows = [
+      ['Lyman', 1], ['Balmer', 2], ['Paschen', 3]
+    ];
+    rows.forEach(([name, nu], i) => {
+      const lam = HC * nu * nu / 13.6;
+      const yy = y + 36 + i * 14;
+      ctx.fillStyle = 'rgba(230,238,248,0.8)';
+      ctx.font = '10px Segoe UI, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(name, x + 14, yy);
+      ctx.fillStyle = 'rgba(255,213,79,0.85)';
+      ctx.textAlign = 'right';
+      ctx.fillText(de(lam, 0) + ' nm', x + w - 14, yy);
+    });
+  }
+
+  function draw() {
+    drawBackground();
+    drawLevels();
+    drawTransition();
+    drawFormulaBox();
+    drawSpectrum();
+    drawLimitsBox();
+  }
+
+  function refresh() {
+    updateReadout();
+    draw();
+  }
+
+  [noEl, nuEl].forEach(el => el.addEventListener('input', refresh));
+
+  emBtn.addEventListener('click', () => {
+    emission = true;
+    emBtn.classList.add('on');
+    abBtn.classList.remove('on');
+    draw();
+  });
+  abBtn.addEventListener('click', () => {
+    emission = false;
+    abBtn.classList.add('on');
+    emBtn.classList.remove('on');
+    draw();
+  });
+
+  function setSeries(nu) {
+    nuEl.value = nu;
+    let no = parseInt(noEl.value, 10);
+    if (no <= nu) { no = nu + 1; noEl.value = Math.min(5, no); }
+    refresh();
+  }
+  document.getElementById('lyBtn').addEventListener('click', () => setSeries(1));
+  document.getElementById('baBtn').addEventListener('click', () => setSeries(2));
+  document.getElementById('paBtn').addEventListener('click', () => setSeries(3));
+
+  window.addEventListener('resize', () => { fitCanvas(); draw(); });
+  fitCanvas();
+  refresh();
+})();
+</script>
+</body>
+</html>

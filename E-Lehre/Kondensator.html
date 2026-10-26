@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kondensator – Aufladen und Entladen (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1000px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1000px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/560;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:200px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:66px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 15px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.warn{background:rgba(255,138,101,.14);border-color:rgba(255,138,101,.5);color:var(--warm)}
+  button.warn:hover{background:rgba(255,138,101,.26)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.amber{color:var(--accent2)}
+  .readout .v.pink{color:var(--pink)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Kondensator – <span>Aufladen und Entladen</span></h1>
+  <p class="subtitle">RC-Kreis · Exponentialfunktion · Zeitkonstante τ = R·C</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Stromkreis mit Kondensator, Widerstand und Spannungsdiagrammen"></canvas>
+
+    <div class="controls">
+      <label>Spannung U₀ <input id="u0" type="range" min="2" max="12" step="0.5" value="10"><output id="u0v">10,0 V</output></label>
+      <label>Widerstand R <input id="rr" type="range" min="1" max="20" step="0.5" value="10"><output id="rrv">10,0 kΩ</output></label>
+      <label>Kapazität C <input id="cc" type="range" min="100" max="1000" step="10" value="200"><output id="ccv">200 µF</output></label>
+    </div>
+
+    <div class="controls">
+      <button id="chargeBtn">Aufladen</button>
+      <button id="dischargeBtn" class="warn">Entladen</button>
+      <button id="resetBtn">⟲ Zurücksetzen</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k" style="text-transform:none">Zeitkonstante τ</div><div class="v amber" id="rTau">–</div></div>
+      <div><div class="k">Spannung U<sub>C</sub></div><div class="v" id="rU">–</div></div>
+      <div><div class="k">Stromstärke I</div><div class="v pink" id="rI">–</div></div>
+      <div><div class="k">Ladung Q</div><div class="v" id="rQ">–</div></div>
+      <div><div class="k">Energie E<sub>C</sub></div><div class="v" id="rE">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Zeitkonstante:</b> Nach einer Zeit τ = R·C hat der Kondensator beim Aufladen 63,2 % der
+      Endspannung erreicht; nach 5 τ sind es 99,3 %. Der Strom ist am Anfang am größten und fällt
+      exponentiell ab, weil die Spannung am Widerstand U<sub>R</sub> = U₀ − U<sub>C</sub> ebenfalls abnimmt.
+      Beim Entladen treibt die gespeicherte Ladung den Strom selbst durch den Widerstand – deshalb
+      fließt er jetzt in die entgegengesetzte Richtung. Die Kurven sind hier gegenüber der Realzeit
+      um den Faktor 2 gerafft.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 560;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+
+  const u0El = document.getElementById('u0');
+  const rrEl = document.getElementById('rr');
+  const ccEl = document.getElementById('cc');
+  const u0v = document.getElementById('u0v');
+  const rrv = document.getElementById('rrv');
+  const ccv = document.getElementById('ccv');
+  const rTau = document.getElementById('rTau');
+  const rU = document.getElementById('rU');
+  const rI = document.getElementById('rI');
+  const rQ = document.getElementById('rQ');
+  const rE = document.getElementById('rE');
+
+  const SPEED = 2;          // Zeitraffer
+  const SEGMENTS = 6;       // dargestellte Zeit in τ
+
+  let mode = 'charge';      // 'charge' | 'discharge'
+  let uStart = 0;
+  let t = 0;
+  let running = true;
+  let dotS = 0;
+  let lastTs = 0;
+
+  const de = (v, d = 1) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function params() {
+    const u0 = parseFloat(u0El.value);
+    const rk = parseFloat(rrEl.value);
+    const cu = parseFloat(ccEl.value);
+    return { u0, rk, cu, r: rk * 1000, c: cu * 1e-6, tau: rk * cu / 1000 };
+  }
+
+  function target() { return mode === 'charge' ? params().u0 : 0; }
+
+  function uAt(tt) {
+    const p = params();
+    return target() + (uStart - target()) * Math.exp(-tt / p.tau);
+  }
+
+  function iAt(tt) {
+    const p = params();
+    return (target() - uStart) / p.r * Math.exp(-tt / p.tau);
+  }
+
+  function resetSim() {
+    mode = 'charge';
+    uStart = 0;
+    t = 0;
+    running = true;
+    dotS = 0;
+  }
+
+  function updateReadout() {
+    const p = params();
+    const U = uAt(t);
+    const I = iAt(t);
+    const Q = p.c * U;
+    const E = 0.5 * p.c * U * U;
+    u0v.textContent = de(p.u0, 1) + ' V';
+    rrv.textContent = de(p.rk, 1) + ' kΩ';
+    ccv.textContent = de(p.cu, 0) + ' µF';
+    rTau.textContent = de(p.tau, 2) + ' s';
+    rU.textContent = de(U, 2) + ' V';
+    rI.textContent = de(I * 1000, 2) + ' mA';
+    rQ.textContent = de(Q * 1000, 2) + ' mC';
+    rE.textContent = de(E * 1000, 1) + ' mJ';
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(79,195,247,0.045)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y <= H; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  }
+
+  // ---------- Stromkreis ----------
+  const CI = { left: 140, right: 440, top: 150, bottom: 390 };
+
+  function pathLength() {
+    const w = CI.right - CI.left, h = CI.bottom - CI.top;
+    return 2 * (w + h);
+  }
+
+  function pointOnPath(s) {
+    // s in [0,1): oben rechts, rechts runter, unten links, links hoch
+    const w = CI.right - CI.left, h = CI.bottom - CI.top;
+    const L = 2 * (w + h);
+    let d = ((s % 1) + 1) % 1 * L;
+    if (d < w) return { x: CI.left + d, y: CI.top, dir: 0 };
+    d -= w;
+    if (d < h) return { x: CI.right, y: CI.top + d, dir: 1 };
+    d -= h;
+    if (d < w) return { x: CI.right - d, y: CI.bottom, dir: 2 };
+    d -= w;
+    return { x: CI.left, y: CI.bottom - d, dir: 3 };
+  }
+
+  function drawWire(x1, y1, x2, y2) {
+    ctx.strokeStyle = 'rgba(180,205,230,0.55)';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+
+  function drawCircuit() {
+    const p = params();
+    const U = uAt(t);
+    const frac = p.u0 > 0 ? Math.min(1, Math.abs(U) / p.u0) : 0;
+
+    // Leitungen
+    drawWire(CI.left, CI.top, CI.right, CI.top);
+    drawWire(CI.right, CI.top, CI.right, 245);
+    drawWire(CI.right, 285, CI.right, CI.bottom);
+    drawWire(CI.right, CI.bottom, CI.left, CI.bottom);
+    drawWire(CI.left, CI.bottom, CI.left, 290);
+    drawWire(CI.left, 240, CI.left, CI.top);
+
+    // Batterie
+    ctx.strokeStyle = 'rgba(230,238,248,0.9)';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(CI.left - 22, 242); ctx.lineTo(CI.left + 22, 242); ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(CI.left - 12, 258); ctx.lineTo(CI.left + 12, 258); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(CI.left - 22, 274); ctx.lineTo(CI.left + 22, 274); ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(CI.left - 12, 290); ctx.lineTo(CI.left + 12, 290); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.95)';
+    ctx.font = '13px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`U₀ = ${de(p.u0, 1)} V`, CI.left - 32, 272);
+    ctx.fillStyle = 'rgba(255,213,79,0.95)';
+    ctx.font = '600 15px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('+', CI.left - 32, 238);
+    ctx.fillText('−', CI.left - 32, 296);
+
+    // Schalter (geschlossen)
+    ctx.fillStyle = 'rgba(180,205,230,0.75)';
+    ctx.beginPath(); ctx.arc(198, CI.top, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(252, CI.top, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(126,231,135,0.85)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(202, CI.top); ctx.lineTo(248, CI.top); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.font = '12px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Schalter', 225, CI.top - 14);
+
+    // Widerstand (Zickzack)
+    const zx0 = 310, zx1 = 382, zy = CI.top;
+    ctx.strokeStyle = 'rgba(255,213,79,0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(zx0, zy);
+    const n = 6, step = (zx1 - zx0) / n;
+    for (let i = 0; i < n; i++) {
+      ctx.lineTo(zx0 + step * (i + 0.5), zy + (i % 2 === 0 ? -13 : 13));
+    }
+    ctx.lineTo(zx1, zy);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,213,79,0.95)';
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`R = ${de(p.rk, 1)} kΩ`, (zx0 + zx1) / 2, zy - 28);
+
+    // Kondensator
+    ctx.strokeStyle = 'rgba(230,238,248,0.92)';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(404, 245); ctx.lineTo(476, 245); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(404, 285); ctx.lineTo(476, 285); ctx.stroke();
+    ctx.fillStyle = 'rgba(79,195,247,0.95)';
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`C = ${de(p.cu, 0)} µF`, 486, 269);
+
+    // Ladungsanzeige
+    const plusCount = Math.round(frac * 4);
+    ctx.font = '600 15px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    for (let i = 0; i < 4; i++) {
+      if (i < plusCount) {
+        ctx.fillStyle = `rgba(255,138,101,${0.35 + 0.6 * frac})`;
+        ctx.fillText('+', 418 + i * 15, 239);
+        ctx.fillStyle = `rgba(79,195,247,${0.35 + 0.6 * frac})`;
+        ctx.fillText('−', 418 + i * 15, 303);
+      }
+    }
+
+    // Feldpfeile
+    const fieldAlpha = 0.12 + 0.6 * frac;
+    ctx.strokeStyle = `rgba(126,231,135,${fieldAlpha})`;
+    ctx.fillStyle = `rgba(126,231,135,${fieldAlpha})`;
+    ctx.lineWidth = 1.4;
+    for (let i = 0; i < 4; i++) {
+      const fx = 418 + i * 15;
+      ctx.beginPath(); ctx.moveTo(fx, 252); ctx.lineTo(fx, 277); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(fx, 279); ctx.lineTo(fx - 3.5, 272); ctx.lineTo(fx + 3.5, 272);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(126,231,135,0.85)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('E', 400, 270);
+
+    // Strompfeile / Elektronen
+    const p2 = params();
+    const I = iAt(t);
+    const iNorm = Math.min(1, Math.abs(I) / (p2.u0 / p2.r));
+    if (iNorm > 0.004) {
+      const dir = I > 0 ? 1 : -1;
+      const count = 18;
+      for (let k = 0; k < count; k++) {
+        const s = dotS + dir * k / count;
+        const pt = pointOnPath(s);
+        const a = 0.25 + 0.7 * iNorm;
+        ctx.fillStyle = `rgba(255,213,79,${a})`;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, 2.6, 0, Math.PI * 2); ctx.fill();
+      }
+      // Richtungspfeil (Tangente aus zwei benachbarten Bahnpunkten)
+      const s0 = dotS + dir * 0.12;
+      const pa = pointOnPath(s0 - dir * 0.004);
+      const pb = pointOnPath(s0 + dir * 0.004);
+      ctx.save();
+      ctx.translate((pa.x + pb.x) / 2, (pa.y + pb.y) / 2);
+      ctx.rotate(Math.atan2(pb.y - pa.y, pb.x - pa.x));
+      ctx.fillStyle = 'rgba(255,213,79,0.9)';
+      ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-3, -5); ctx.lineTo(-3, 5); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    // Beschriftung
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(mode === 'charge' ? 'Ladevorgang' : 'Entladevorgang', 60, 70);
+    if (dotS !== 0) {
+      ctx.fillStyle = 'rgba(255,213,79,0.8)';
+      ctx.font = '11px Segoe UI, sans-serif';
+      ctx.fillText('Pfeile: technische Stromrichtung', 60, 90);
+    }
+  }
+
+  // ---------- Diagramme ----------
+  const GX0 = 596, GX1 = 958;
+  const UY0 = 112, UY1 = 292;
+  const IY0 = 346, IY1 = 516;
+
+  function plotFrame(y0, y1, yLabel) {
+    ctx.strokeStyle = 'rgba(138,160,189,0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(GX0, y1); ctx.lineTo(GX1, y1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(GX0, y0); ctx.lineTo(GX0, y1); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.save();
+    ctx.translate(GX0 - 10, (y0 + y1) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText(yLabel, 0, 0);
+    ctx.restore();
+    // Gitter
+    ctx.strokeStyle = 'rgba(138,160,189,0.1)';
+    for (let i = 1; i < 4; i++) {
+      const y = y1 - (y1 - y0) * i / 4;
+      ctx.beginPath(); ctx.moveTo(GX0, y); ctx.lineTo(GX1, y); ctx.stroke();
+    }
+  }
+
+  function drawGraphs() {
+    const p = params();
+    const tau = p.tau;
+    const tMax = SEGMENTS * tau;
+    const xOf = tt => GX0 + (tt / tMax) * (GX1 - GX0);
+
+    // Spannungsdiagramm
+    plotFrame(UY0, UY1, 'U in V');
+    ctx.fillStyle = 'rgba(230,238,248,0.8)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Spannung U_C(t)', GX0 + 6, UY0 - 8);
+
+    const yU = u => UY1 - (u / p.u0) * (UY1 - UY0);
+    ctx.strokeStyle = 'rgba(230,238,248,0.28)';
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath(); ctx.moveTo(GX0, yU(p.u0)); ctx.lineTo(GX1, yU(p.u0)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(138,160,189,0.75)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${de(p.u0, 0)} V`, GX0 - 4, yU(p.u0) + 3);
+    ctx.fillText('0', GX0 - 4, UY1 + 3);
+
+    // τ-Marke
+    ctx.strokeStyle = 'rgba(255,213,79,0.35)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(xOf(tau), UY0); ctx.lineTo(xOf(tau), IY1); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,213,79,0.8)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('τ', xOf(tau), UY0 - 2);
+
+    // Kurve
+    ctx.strokeStyle = mode === 'charge' ? '#4fc3f7' : '#ff8a65';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    for (let i = 0; i <= 300; i++) {
+      const tt = tMax * i / 300;
+      const x = xOf(tt), y = yU(uAt(tt));
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Marker
+    const xm = xOf(t);
+    ctx.fillStyle = mode === 'charge' ? '#4fc3f7' : '#ff8a65';
+    ctx.beginPath(); ctx.arc(xm, yU(uAt(t)), 4, 0, Math.PI * 2); ctx.fill();
+
+    // Stromdiagramm
+    plotFrame(IY0, IY1, 'I in mA');
+    const i0 = p.u0 / p.r * 1000;
+    const zero = (IY0 + IY1) / 2;
+    const yI = i => zero - (i / i0) * ((IY1 - IY0) / 2 - 8);
+    ctx.strokeStyle = 'rgba(230,238,248,0.22)';
+    ctx.beginPath(); ctx.moveTo(GX0, zero); ctx.lineTo(GX1, zero); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.75)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`+${de(i0, 1)}`, GX0 - 4, IY0 + 8);
+    ctx.fillText('0', GX0 - 4, zero + 3);
+    ctx.fillText(`−${de(i0, 1)}`, GX0 - 4, IY1 - 3);
+
+    ctx.strokeStyle = '#f48fb1';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    for (let i = 0; i <= 300; i++) {
+      const tt = tMax * i / 300;
+      const x = xOf(tt), y = yI(iAt(tt) * 1000);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#f48fb1';
+    ctx.beginPath(); ctx.arc(xm, yI(iAt(t) * 1000), 4, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = 'rgba(230,238,248,0.8)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Stromstärke I(t)', GX0 + 6, IY0 - 8);
+
+    // x-Achse
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    for (let k = 0; k <= SEGMENTS; k++) {
+      const x = xOf(k * tau);
+      ctx.strokeStyle = 'rgba(138,160,189,0.25)';
+      ctx.beginPath(); ctx.moveTo(x, IY1); ctx.lineTo(x, IY1 + 4); ctx.stroke();
+      ctx.fillText(k === 0 ? '0' : (k === 1 ? 'τ' : k + 'τ'), x, IY1 + 17);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.fillText('t  (τ = ' + de(tau, 2) + ' s)', GX1, IY1 + 33);
+  }
+
+  function draw() {
+    updateReadout();
+    drawBackground();
+    drawCircuit();
+    drawGraphs();
+  }
+
+  function update(dt) {
+    if (!running) return;
+    const p = params();
+    t += dt * SPEED;
+    const tMax = SEGMENTS * p.tau;
+    if (t >= tMax) { t = tMax; running = false; }
+    const I = iAt(t);
+    const iNorm = Math.min(1, Math.abs(I) / (p.u0 / p.r));
+    dotS += (I > 0 ? 1 : -1) * iNorm * dt * 0.35;
+  }
+
+  function loop(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function switchMode(next) {
+    uStart = uAt(t);
+    mode = next;
+    t = 0;
+    running = true;
+  }
+
+  document.getElementById('chargeBtn').addEventListener('click', () => switchMode('charge'));
+  document.getElementById('dischargeBtn').addEventListener('click', () => switchMode('discharge'));
+  document.getElementById('resetBtn').addEventListener('click', resetSim);
+
+  [u0El, rrEl, ccEl].forEach(el => el.addEventListener('input', () => {
+    resetSim();
+    updateReadout();
+  }));
+
+  window.addEventListener('resize', () => { fitCanvas(); draw(); });
+  fitCanvas();
+  updateReadout();
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photoeffekt – Lichtquanten und Gegenspannung (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1000px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1000px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/560;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:200px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:66px;text-align:right}
+  select{
+    background:#0e1a2c;color:var(--text);border:1px solid rgba(79,195,247,.35);border-radius:8px;
+    padding:7px 10px;font-family:inherit;font-size:.86rem;outline:none;
+  }
+  select:focus{border-color:var(--accent)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.amber{color:var(--accent2)}
+  .readout .v.pink{color:var(--pink)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Photoeffekt – <span>Lichtquanten</span></h1>
+  <p class="subtitle">Einstein-Gleichung · Grenzfrequenz · Gegenspannung · Intensität</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Photozelle mit Lichtquanten, Elektronen und Diagrammen"></canvas>
+
+    <div class="controls">
+      <label>Wellenlänge λ <input id="lam" type="range" min="200" max="800" step="5" value="400"><output id="lamv">400 nm</output></label>
+      <label><span>Material (Austrittsarbeit W<sub>A</sub>)</span>
+        <select id="mat">
+          <option value="2.14">Cäsium · 2,14 eV</option>
+          <option value="2.28">Natrium · 2,28 eV</option>
+          <option value="4.33">Zink · 4,33 eV</option>
+          <option value="4.73">Silber · 4,73 eV</option>
+        </select>
+      </label>
+      <label>Intensität <input id="int" type="range" min="0" max="100" step="1" value="60"><output id="intv">60 %</output></label>
+      <label><span>Gegenspannung U<sub>G</sub></span> <input id="ug" type="range" min="0" max="3" step="0.05" value="0"><output id="ugv">0,00 V</output></label>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Photonenenergie E<sub>Ph</sub></div><div class="v" id="rEph">–</div></div>
+      <div><div class="k">E<sub>kin,max</sub></div><div class="v amber" id="rEkin">–</div></div>
+      <div><div class="k" style="text-transform:none">Grenzwellenlänge λ<sub>G</sub></div><div class="v" id="rLamG">–</div></div>
+      <div><div class="k" style="text-transform:none">Grenzfrequenz f<sub>G</sub></div><div class="v" id="rFG">–</div></div>
+      <div><div class="k">Photostrom</div><div class="v pink" id="rI">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Einstein-Gleichung:</b> E<sub>kin,max</sub> = h·f − W<sub>A</sub>. Die Energie eines Photons hängt
+      nur von der Frequenz ab, nicht von der Intensität. Unterhalb der Grenzfrequenz f<sub>G</sub> = W<sub>A</sub>/h
+      werden – unabhängig davon, wie hell das Licht ist – keine Elektronen freigesetzt. Mehr Intensität
+      bedeutet mehr Photonen pro Sekunde und damit mehr Elektronen, aber nicht mehr Energie pro Elektron.
+      Die Gegenspannung U<sub>G</sub> bremst die Elektronen; der Strom verschwindet bei U<sub>G</sub> = E<sub>kin,max</sub>/e.
+      Das ist der direkte Beweis gegen das klassische Wellenbild, nach dem die Energie kontinuierlich
+      mit der Intensität wachsen müsste.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 560;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+
+  const lamEl = document.getElementById('lam');
+  const matEl = document.getElementById('mat');
+  const intEl = document.getElementById('int');
+  const ugEl = document.getElementById('ug');
+  const lamv = document.getElementById('lamv');
+  const intv = document.getElementById('intv');
+  const ugv = document.getElementById('ugv');
+  const rEph = document.getElementById('rEph');
+  const rEkin = document.getElementById('rEkin');
+  const rLamG = document.getElementById('rLamG');
+  const rFG = document.getElementById('rFG');
+  const rI = document.getElementById('rI');
+
+  const HC = 1239.841984;        // eV·nm
+  const H_EV = 4.135667696e-15;  // eV·s
+  const C = 2.99792458e8;        // m/s
+
+  let photons = [];
+  let electrons = [];
+  let lastTs = 0;
+  let spawnAcc = 0;
+
+  const de = (v, d = 2) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+  const SUPS = {'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+  function sup(n) { return String(n).split('').map(c => SUPS[c] || c).join(''); }
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function wavelengthToRGB(wl) {
+    if (wl < 380) return [150, 90, 255];
+    if (wl > 750) return [150, 35, 35];
+    let r = 0, g = 0, b = 0;
+    if (wl < 440) { r = -(wl - 440) / 60; b = 1; }
+    else if (wl < 490) { g = (wl - 440) / 50; b = 1; }
+    else if (wl < 510) { g = 1; b = -(wl - 510) / 20; }
+    else if (wl < 580) { r = (wl - 510) / 70; g = 1; }
+    else if (wl < 645) { r = 1; g = -(wl - 645) / 65; }
+    else { r = 1; }
+    let f = 1;
+    if (wl < 420) f = 0.3 + 0.7 * (wl - 380) / 40;
+    else if (wl > 700) f = 0.3 + 0.7 * (780 - wl) / 80;
+    const gamma = 0.8;
+    return [
+      Math.round(255 * Math.pow(r * f, gamma)),
+      Math.round(255 * Math.pow(g * f, gamma)),
+      Math.round(255 * Math.pow(b * f, gamma))
+    ];
+  }
+
+  function params() {
+    const lam = parseFloat(lamEl.value);
+    const Wa = parseFloat(matEl.value);
+    const intensity = parseFloat(intEl.value) / 100;
+    const Ug = parseFloat(ugEl.value);
+    const Eph = HC / lam;
+    const Ekin = Eph - Wa;
+    const f = C / (lam * 1e-9);
+    const fG = Wa / H_EV;
+    const lamG = HC / Wa;
+    const Ustop = Math.max(0, Ekin);
+    const emit = Ekin > 0;
+    const Irel = emit ? intensity * currentFactor(Ug, Ustop) : 0;
+    return { lam, Wa, intensity, Ug, Eph, Ekin, f, fG, lamG, Ustop, emit, Irel };
+  }
+
+  function currentFactor(U, Ustop) {
+    const d = 0.08;
+    const start = Math.max(0, Ustop - d);
+    if (U <= start) return 1;
+    if (U >= Ustop) return 0;
+    const x = (U - start) / (Ustop - start);
+    return 1 - x * x * (3 - 2 * x);
+  }
+
+  function updateReadout() {
+    const s = params();
+    lamv.textContent = de(s.lam, 0) + ' nm';
+    intv.textContent = de(parseFloat(intEl.value), 0) + ' %';
+    ugv.textContent = de(s.Ug, 2) + ' V';
+    rEph.textContent = de(s.Eph, 2) + ' eV';
+    rEkin.textContent = s.emit ? de(s.Ekin, 2) + ' eV' : '0 eV (keine Emission)';
+    rLamG.textContent = de(s.lamG, 0) + ' nm';
+    rFG.textContent = de(s.fG / 1e12, 0) + ' THz';
+    rI.textContent = de(s.Irel * 100, 0) + ' %';
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(79,195,247,0.04)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+  }
+
+  // ---------- Photozelle ----------
+  const TX0 = 46, TX1 = 536, TY0 = 96, TY1 = 392;
+  const CATH = 190, ANODE = 430;
+
+  function drawTube(s) {
+    const rgb = wavelengthToRGB(s.lam);
+
+    // Glasroehre
+    ctx.save();
+    const glass = ctx.createLinearGradient(0, TY0, 0, TY1);
+    glass.addColorStop(0, 'rgba(79,195,247,0.05)');
+    glass.addColorStop(1, 'rgba(79,195,247,0.015)');
+    ctx.fillStyle = glass;
+    ctx.strokeStyle = 'rgba(79,195,247,0.28)';
+    ctx.lineWidth = 2;
+    roundRect(TX0, TY0, TX1 - TX0, TY1 - TY0, 26, true, true);
+
+    // Vakuum-Beschriftung
+    ctx.fillStyle = 'rgba(138,160,189,0.55)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Vakuum', (TX0 + TX1) / 2, TY0 + 26);
+
+    // Kathode
+    const cy0 = 176, cy1 = 316;
+    ctx.fillStyle = 'rgba(255,138,101,0.85)';
+    ctx.fillRect(CATH - 7, cy0, 12, cy1 - cy0);
+    ctx.fillStyle = 'rgba(255,138,101,0.18)';
+    ctx.fillRect(CATH - 7, cy0, 12, cy1 - cy0);
+    ctx.fillStyle = 'rgba(230,238,248,0.75)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Kathode', CATH, cy1 + 18);
+
+    // Anode
+    ctx.fillStyle = 'rgba(79,195,247,0.8)';
+    ctx.fillRect(ANODE - 4, cy0, 9, cy1 - cy0);
+    ctx.fillStyle = 'rgba(230,238,248,0.75)';
+    ctx.fillText('Anode', ANODE, cy1 + 18);
+
+    // Photonen
+    photons.forEach(ph => {
+      const alpha = ph.life;
+      ctx.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i <= 18; i++) {
+        const x = ph.x + i * 1.6;
+        const y = ph.y + Math.sin((i / 18) * Math.PI * 3 + ph.phase) * 5;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      // Pfeilspitze
+      ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(ph.x + 33, ph.y);
+      ctx.lineTo(ph.x + 25, ph.y - 4);
+      ctx.lineTo(ph.x + 25, ph.y + 4);
+      ctx.closePath(); ctx.fill();
+    });
+
+    // Elektronen
+    electrons.forEach(el => {
+      const glow = ctx.createRadialGradient(el.x, el.y, 1, el.x, el.y, 9);
+      glow.addColorStop(0, 'rgba(126,231,135,0.95)');
+      glow.addColorStop(1, 'rgba(126,231,135,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(el.x, el.y, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#7ee787';
+      ctx.beginPath(); ctx.arc(el.x, el.y, 4, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Strahl / Hinweis
+    if (!s.emit) {
+      ctx.fillStyle = 'rgba(255,138,101,0.95)';
+      ctx.font = '600 13px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('h·f < W_A  →  keine Elektronen', (TX0 + TX1) / 2, TY1 - 24);
+    } else if (s.Irel < 0.01) {
+      ctx.fillStyle = 'rgba(255,213,79,0.95)';
+      ctx.font = '600 13px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Gegenspannung hält alle Elektronen zurück', (TX0 + TX1) / 2, TY1 - 24);
+    } else {
+      ctx.fillStyle = 'rgba(126,231,135,0.85)';
+      ctx.font = '11px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('E_kin,max = ' + de(s.Ekin, 2) + ' eV', (CATH + ANODE) / 2, TY1 - 26);
+    }
+
+    // Schaltkreis
+    const yWire = 438;
+    ctx.strokeStyle = 'rgba(180,205,230,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(CATH, cy1); ctx.lineTo(CATH, yWire); ctx.lineTo(300, yWire); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ANODE, cy1); ctx.lineTo(ANODE, yWire); ctx.lineTo(380, yWire); ctx.stroke();
+
+    // Batterie / Gegenspannung
+    ctx.strokeStyle = 'rgba(230,238,248,0.85)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(318, yWire - 10); ctx.lineTo(318, yWire + 10); ctx.stroke();
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(332, yWire - 5); ctx.lineTo(332, yWire + 5); ctx.stroke();
+    ctx.strokeStyle = 'rgba(180,205,230,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(300, yWire); ctx.lineTo(318, yWire); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(332, yWire); ctx.lineTo(380, yWire); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('U_G = ' + de(s.Ug, 2) + ' V', 325, yWire + 28);
+
+    // Amperemeter
+    ctx.fillStyle = '#0a1524';
+    ctx.beginPath(); ctx.arc(358, yWire, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(79,195,247,0.65)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(358, yWire, 14, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(79,195,247,0.95)';
+    ctx.font = '600 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('A', 358, yWire + 4);
+
+    // Ueberschrift
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Photozelle', TX0 + 4, TY0 - 12);
+  }
+
+  // ---------- Diagramme ----------
+  const AX0 = 606, AX1 = 958;
+  const AY0 = 86, AY1 = 270;
+  const BY0 = 330, BY1 = 512;
+
+  function graphFrame(x0, y0, x1, y1, xLabel, yLabel) {
+    ctx.strokeStyle = 'rgba(138,160,189,0.35)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0, y1); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(xLabel, (x0 + x1) / 2, y1 + 30);
+    ctx.save();
+    ctx.translate(x0 - 12, (y0 + y1) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText(yLabel, 0, 0);
+    ctx.restore();
+  }
+
+  function drawEnergyGraph(s) {
+    const yMin = -5, yMax = 7;
+    const xOf = f14 => AX0 + (f14 / 16) * (AX1 - AX0);
+    const yOf = E => AY1 - ((E - yMin) / (yMax - yMin)) * (AY1 - AY0);
+
+    graphFrame(AX0, AY0, AX1, AY1, 'f in 10¹⁴ Hz', 'E in eV');
+
+    // Nullinie
+    const y0 = yOf(0);
+    ctx.strokeStyle = 'rgba(230,238,248,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(AX0, y0); ctx.lineTo(AX1, y0); ctx.stroke();
+
+    // Gitter
+    ctx.strokeStyle = 'rgba(138,160,189,0.08)';
+    for (let f = 0; f <= 16; f += 4) {
+      ctx.beginPath(); ctx.moveTo(xOf(f), AY0); ctx.lineTo(xOf(f), AY1); ctx.stroke();
+    }
+    for (let E = -4; E <= 6; E += 2) {
+      ctx.beginPath(); ctx.moveTo(AX0, yOf(E)); ctx.lineTo(AX1, yOf(E)); ctx.stroke();
+    }
+
+    // Achsenbeschriftung
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    for (let E = -4; E <= 6; E += 2) ctx.fillText(String(E), AX0 - 4, yOf(E) + 3);
+    ctx.textAlign = 'center';
+    for (let f = 0; f <= 16; f += 4) ctx.fillText(String(f), xOf(f), AY1 + 14);
+
+    // Grenzbereich
+    const xG = xOf(s.fG / 1e14);
+    if (xG > AX0 && xG < AX1) {
+      ctx.fillStyle = 'rgba(255,138,101,0.07)';
+      ctx.fillRect(AX0, AY0, xG - AX0, AY1 - AY0);
+      ctx.strokeStyle = 'rgba(255,138,101,0.55)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(xG, AY0); ctx.lineTo(xG, AY1); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,138,101,0.9)';
+      ctx.font = '10px Segoe UI, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('f_G', xG + 4, AY0 + 12);
+    }
+
+    // Gerade E = h f - W
+    ctx.strokeStyle = '#ffd54f';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    let started = false;
+    for (let f = 0; f <= 16; f += 0.2) {
+      const E = H_EV * f * 1e14 - s.Wa;
+      const x = xOf(f), y = yOf(E);
+      if (y < AY0 - 2 || y > AY1 + 2) { started = false; continue; }
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // aktuelle Frequenz
+    const fNow = s.f / 1e14;
+    const xNow = xOf(fNow);
+    if (xNow >= AX0 && xNow <= AX1) {
+      ctx.strokeStyle = 'rgba(79,195,247,0.55)';
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath(); ctx.moveTo(xNow, AY0); ctx.lineTo(xNow, AY1); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(79,195,247,0.95)';
+      ctx.font = '10px Segoe UI, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('f', xNow + 4, AY1 - 6);
+      const ENow = H_EV * fNow * 1e14 - s.Wa;
+      const yNow = yOf(ENow);
+      if (yNow >= AY0 && yNow <= AY1) {
+        ctx.fillStyle = s.emit ? '#7ee787' : '#ff8a65';
+        ctx.beginPath(); ctx.arc(xNow, yNow, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(8,17,31,0.85)';
+        ctx.beginPath(); ctx.arc(xNow, yNow, 2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // Beschriftung
+    ctx.fillStyle = 'rgba(230,238,248,0.8)';
+    ctx.font = '600 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('E_kin = h·f − W_A', AX0 + 8, AY0 - 8);
+    ctx.fillStyle = 'rgba(138,160,189,0.75)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Steigung h', AX1 - 6, AY0 - 8);
+  }
+
+  function drawCurrentGraph(s) {
+    const xOf = U => AX0 + (U / 3) * (AX1 - AX0);
+    const yOf = I => BY1 - I * (BY1 - BY0);
+
+    graphFrame(AX0, BY0, AX1, BY1, 'Gegenspannung U_G in V', 'I / I_max');
+
+    ctx.strokeStyle = 'rgba(138,160,189,0.1)';
+    for (let U = 0; U <= 3; U += 0.5) {
+      ctx.beginPath(); ctx.moveTo(xOf(U), BY0); ctx.lineTo(xOf(U), BY1); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    for (let U = 0; U <= 3; U += 0.5) ctx.fillText(de(U, 1), xOf(U), BY1 + 14);
+
+    function curve(intensity, color, dashed) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash(dashed ? [5, 4] : []);
+      ctx.beginPath();
+      for (let i = 0; i <= 240; i++) {
+        const U = 3 * i / 240;
+        const I = s.emit ? intensity * currentFactor(U, s.Ustop) : 0;
+        const x = xOf(U), y = yOf(Math.max(0, Math.min(1, I)));
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    curve(0.5 * s.intensity, 'rgba(244,143,177,0.45)', true);
+    curve(s.intensity, '#f48fb1', false);
+
+    // U_stop
+    if (s.emit && s.Ustop <= 3) {
+      ctx.strokeStyle = 'rgba(255,213,79,0.7)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(xOf(s.Ustop), BY0); ctx.lineTo(xOf(s.Ustop), BY1); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,213,79,0.95)';
+      ctx.font = '10px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('U_stop = ' + de(s.Ustop, 2) + ' V', xOf(s.Ustop), BY0 + 12);
+    }
+
+    // aktueller Punkt
+    const xNow = xOf(s.Ug);
+    const yNow = yOf(s.Irel);
+    ctx.fillStyle = '#f48fb1';
+    ctx.beginPath(); ctx.arc(xNow, yNow, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(244,143,177,0.4)';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(xNow, yNow); ctx.lineTo(xNow, BY1); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(230,238,248,0.8)';
+    ctx.font = '600 11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Photostrom I(U_G)', AX0 + 8, BY0 - 8);
+    ctx.fillStyle = 'rgba(138,160,189,0.7)';
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('gestrichelt: halbe Intensität', AX1 - 6, BY0 - 8);
+  }
+
+  function draw() {
+    updateReadout();
+    const s = params();
+    drawBackground();
+    drawTube(s);
+    drawEnergyGraph(s);
+    drawCurrentGraph(s);
+  }
+
+  function update(dt) {
+    const s = params();
+
+    // Photonen erzeugen
+    spawnAcc += dt * (0.8 + 7 * s.intensity);
+    while (spawnAcc > 1) {
+      spawnAcc -= 1;
+      photons.push({
+        x: 62 + Math.random() * 8,
+        y: 152 + Math.random() * 188,
+        phase: Math.random() * Math.PI * 2,
+        life: 1
+      });
+    }
+
+    photons.forEach(ph => { ph.x += 150 * dt; });
+    photons = photons.filter(ph => ph.x < CATH - 6);
+
+    // Elektronen
+    if (s.Irel > 0.005 && Math.random() < s.Irel * 9 * dt) {
+      electrons.push({
+        x: CATH + 8,
+        y: 180 + Math.random() * 132,
+        life: 1
+      });
+    }
+    electrons.forEach(el => { el.x += 190 * dt; });
+    electrons = electrons.filter(el => el.x < ANODE - 2);
+  }
+
+  function loop(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function roundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  [lamEl, matEl, intEl, ugEl].forEach(el => el.addEventListener('input', updateReadout));
+
+  window.addEventListener('resize', () => { fitCanvas(); draw(); });
+  fitCanvas();
+  updateReadout();
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

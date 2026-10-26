@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stehende Wellen – Knoten, Bäuche, Eigenfrequenzen (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1000px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1000px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/560;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:200px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:66px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 15px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.on{background:rgba(79,195,247,.32);border-color:rgba(79,195,247,.75)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.amber{color:var(--accent2)}
+  .readout .v.pink{color:var(--pink)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Stehende Wellen – <span>Knoten und Bäuche</span></h1>
+  <p class="subtitle">Eigenfrequenzen einer Saite · Reflexion · Interferenz zweier Wellen</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Stehende Welle auf einer Saite mit Knoten und Bäuchen"></canvas>
+
+    <div class="controls">
+      <label>Saitenlänge L <input id="len" type="range" min="0.5" max="2" step="0.05" value="1.2"><output id="lenv">1,20 m</output></label>
+      <label>Wellengeschwindigkeit c <input id="spd" type="range" min="100" max="400" step="10" value="240"><output id="spdv">240 m/s</output></label>
+      <label>Modus n <input id="mode" type="range" min="1" max="5" step="1" value="2"><output id="modev">2</output></label>
+    </div>
+
+    <div class="controls">
+      <button id="endBtn">Enden: fest – fest</button>
+      <button id="partBtn">Teilwellen zeigen</button>
+      <button id="pauseBtn">Pause</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Frequenz f</div><div class="v amber" id="rF">–</div></div>
+      <div><div class="k">Wellenlänge λ</div><div class="v" id="rLam">–</div></div>
+      <div><div class="k" style="text-transform:none">Knotenabstand λ/2</div><div class="v pink" id="rNode">–</div></div>
+      <div><div class="k">Knoten</div><div class="v" id="rCount">–</div></div>
+      <div><div class="k">Grundfrequenz f₁</div><div class="v" id="rF1">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Warum entstehen Knoten?</b> Die hinlaufende und die am Ende reflektierte Welle überlagern sich.
+      Bei einer festen Einspannung wird die Welle mit einem Phasensprung von 180° reflektiert, am losen Ende
+      ohne Phasensprung. Nur wenn die Saitenlänge ein Vielfaches einer halben Wellenlänge (fest–fest) bzw. ein
+      ungerades Vielfaches einer Viertelwellenlänge (fest–los) ist, passen die Randbedingungen – dann bildet
+      sich eine stehende Welle mit zeitlich festen Knoten. Zwischen zwei Knoten liegt immer λ/2; die
+      Animation läuft stark verlangsamt.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 560;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const X0 = 110, X1 = 890;
+  const Y0 = 250;
+  const AMP = 88;
+
+  const lenEl = document.getElementById('len');
+  const spdEl = document.getElementById('spd');
+  const modeEl = document.getElementById('mode');
+  const lenv = document.getElementById('lenv');
+  const spdv = document.getElementById('spdv');
+  const modev = document.getElementById('modev');
+  const rF = document.getElementById('rF');
+  const rLam = document.getElementById('rLam');
+  const rNode = document.getElementById('rNode');
+  const rCount = document.getElementById('rCount');
+  const rF1 = document.getElementById('rF1');
+  const endBtn = document.getElementById('endBtn');
+  const partBtn = document.getElementById('partBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+
+  let fixedBoth = true;
+  let showParts = false;
+  let paused = false;
+  let phase = 0;
+  let lastTs = 0;
+
+  const de = (v, d = 2) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function params() {
+    const L = parseFloat(lenEl.value);
+    const c = parseFloat(spdEl.value);
+    const n = parseInt(modeEl.value, 10);
+    const q = fixedBoth ? n : (2 * n - 1) / 2;   // Anzahl halber Wellenlängen auf L
+    const lambda = 2 * L / q;
+    const f = c / lambda;
+    return { L, c, n, q, lambda, f, k: q * Math.PI / L };
+  }
+
+  function updateReadout() {
+    const p = params();
+    const f1 = fixedBoth ? p.c / (2 * p.L) : p.c / (4 * p.L);
+    lenv.textContent = de(p.L) + ' m';
+    spdv.textContent = de(p.c, 0) + ' m/s';
+    modev.textContent = String(p.n);
+    rF.textContent = de(p.f, 1) + ' Hz';
+    rLam.textContent = de(p.lambda, 3) + ' m';
+    rNode.textContent = de(p.lambda / 2, 3) + ' m';
+    const nodes = Math.floor(p.q) + 1;
+    rCount.textContent = String(nodes);
+    rF1.textContent = de(f1, 1) + ' Hz';
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(79,195,247,0.045)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y <= H; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  }
+
+  const xPix = (p, xm) => X0 + (xm / p.L) * (X1 - X0);
+
+  function drawWalls(p) {
+    // linke Einspannung
+    ctx.fillStyle = 'rgba(138,160,189,0.55)';
+    ctx.fillRect(X0 - 16, Y0 - 125, 16, 250);
+    ctx.strokeStyle = 'rgba(138,160,189,0.18)';
+    ctx.lineWidth = 1;
+    for (let y = Y0 - 120; y < Y0 + 125; y += 12) {
+      ctx.beginPath(); ctx.moveTo(X0 - 16, y); ctx.lineTo(X0 - 6, y + 6); ctx.stroke();
+    }
+
+    if (fixedBoth) {
+      ctx.fillStyle = 'rgba(138,160,189,0.55)';
+      ctx.fillRect(X1, Y0 - 125, 16, 250);
+    } else {
+      // losen Ring am Ende zeichnen
+    }
+
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('fest', X0 - 8, Y0 + 146);
+    ctx.fillText(fixedBoth ? 'fest' : 'lose', X1 + (fixedBoth ? 8 : 0), Y0 + 146);
+  }
+
+  function drawAxis(p) {
+    // Maßstab
+    const y = Y0 + 180;
+    ctx.strokeStyle = 'rgba(138,160,189,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X0, y); ctx.lineTo(X1, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 4; i++) {
+      const x = X0 + (X1 - X0) * i / 4;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 5); ctx.stroke();
+      ctx.fillText(de(p.L * i / 4, 2), x, y + 19);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('x in m', X1 + 2, y + 38);
+  }
+
+  function drawEnvelope(p) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(79,195,247,0.25)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([6, 6]);
+    for (const sgn of [1, -1]) {
+      ctx.beginPath();
+      for (let i = 0; i <= 240; i++) {
+        const xm = p.L * i / 240;
+        const y = Y0 + sgn * AMP * Math.sin(p.k * xm);
+        const px = xPix(p, xm);
+        if (i === 0) ctx.moveTo(px, y); else ctx.lineTo(px, y);
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  function waveY(p, xm, t) {
+    return Y0 + AMP * Math.sin(p.k * xm) * Math.cos(2 * Math.PI * p.f * t);
+  }
+
+  function drawString(p, visualTime) {
+    const grad = ctx.createLinearGradient(X0, 0, X1, 0);
+    grad.addColorStop(0, '#4fc3f7');
+    grad.addColorStop(0.55, '#7ee787');
+    grad.addColorStop(1, '#ffd54f');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 3.4;
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(79,195,247,0.5)';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    for (let i = 0; i <= 320; i++) {
+      const xm = p.L * i / 320;
+      const x = xPix(p, xm);
+      const y = waveY(p, xm, visualTime);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawParts(p, visualTime) {
+    if (!showParts) return;
+    const w = 2 * Math.PI * p.f;
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = 'rgba(255,213,79,0.55)';
+    ctx.beginPath();
+    for (let i = 0; i <= 300; i++) {
+      const xm = p.L * i / 300;
+      const y = Y0 + (AMP / 2) * Math.sin(p.k * xm - w * visualTime);
+      if (i === 0) ctx.moveTo(xPix(p, xm), y); else ctx.lineTo(xPix(p, xm), y);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(244,143,177,0.55)';
+    ctx.beginPath();
+    for (let i = 0; i <= 300; i++) {
+      const xm = p.L * i / 300;
+      const y = Y0 + (AMP / 2) * Math.sin(p.k * xm + w * visualTime);
+      if (i === 0) ctx.moveTo(xPix(p, xm), y); else ctx.lineTo(xPix(p, xm), y);
+    }
+    ctx.stroke();
+
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(255,213,79,0.85)';
+    ctx.fillText('hinlaufend', X0 + 8, Y0 - 118);
+    ctx.fillStyle = 'rgba(244,143,177,0.85)';
+    ctx.fillText('reflektiert', X0 + 8, Y0 - 102);
+  }
+
+  function drawNodes(p, visualTime) {
+    const nodes = [];
+    const antinodes = [];
+    const q = p.q;
+    for (let m = 0; m * p.L / q <= p.L + 1e-9; m++) {
+      nodes.push(m * p.L / q);
+    }
+    for (let m = 0; m < Math.ceil(q); m++) {
+      const xa = (m + 0.5) * p.L / q;
+      if (xa <= p.L) antinodes.push(xa);
+    }
+
+    // Knoten
+    nodes.forEach((xm, idx) => {
+      const x = xPix(p, xm);
+      ctx.fillStyle = 'rgba(244,143,177,0.95)';
+      ctx.beginPath(); ctx.arc(x, Y0, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(244,143,177,0.35)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath(); ctx.moveTo(x, Y0 - 100); ctx.lineTo(x, Y0 + 100); ctx.stroke();
+      ctx.setLineDash([]);
+      if (idx < 6) {
+        ctx.fillStyle = 'rgba(244,143,177,0.9)';
+        ctx.font = '600 11px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        if (xm > 1e-6 && xm < p.L - 1e-6) ctx.fillText('K', x, Y0 + 120);
+      }
+    });
+
+    // Bäuche
+    antinodes.forEach((xm, idx) => {
+      const x = xPix(p, xm);
+      const yTop = waveY(p, xm, visualTime);
+      ctx.fillStyle = 'rgba(255,213,79,0.9)';
+      ctx.beginPath(); ctx.arc(x, yTop, 3.4, 0, Math.PI * 2); ctx.fill();
+      if (idx < 6) {
+        ctx.font = '600 11px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('B', x, Y0 - 104);
+      }
+    });
+
+    // Knotenabstand markieren
+    if (nodes.length >= 2) {
+      const y = Y0 + 160;
+      const xa = xPix(p, nodes[0]), xb = xPix(p, nodes[1]);
+      ctx.strokeStyle = 'rgba(244,143,177,0.7)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(xa, y); ctx.lineTo(xb, y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(xa, y - 4); ctx.lineTo(xa, y + 4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(xb, y - 4); ctx.lineTo(xb, y + 4); ctx.stroke();
+      ctx.fillStyle = 'rgba(244,143,177,0.9)';
+      ctx.font = '11px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('λ/2 = ' + de(p.lambda / 2, 3) + ' m', (xa + xb) / 2, y - 8);
+    }
+  }
+
+  function drawLooseRing(p, visualTime) {
+    if (fixedBoth) return;
+    const y = waveY(p, p.L, visualTime);
+    ctx.fillStyle = 'rgba(138,160,189,0.25)';
+    ctx.strokeStyle = 'rgba(230,238,248,0.85)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(X1 + 6, y, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+
+  function drawHeader(p) {
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(fixedBoth ? 'Saite: fest – fest' : 'Saite: fest – lose', 40, 52);
+
+    ctx.fillStyle = 'rgba(230,238,248,0.85)';
+    ctx.font = '12px Segoe UI, sans-serif';
+    ctx.fillText('Momentaufnahme (Zeitlupe)', 40, 74);
+
+    // Formel
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(79,195,247,0.95)';
+    ctx.font = '600 14px Segoe UI, sans-serif';
+    const formula = fixedBoth ? 'f = n · c / (2L)' : 'f = (2n−1) · c / (4L)';
+    ctx.fillText(formula, W - 40, 60);
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.fillText('n = ' + p.n + ' · λ = ' + de(p.lambda, 3) + ' m', W - 40, 78);
+  }
+
+  function draw() {
+    updateReadout();
+    const p = params();
+    drawBackground();
+    drawHeader(p);
+    drawWalls(p);
+    drawEnvelope(p);
+    const visualTime = phase / (2 * Math.PI * p.f || 1);
+    drawParts(p, visualTime);
+    drawString(p, visualTime);
+    drawNodes(p, visualTime);
+    drawLooseRing(p, visualTime);
+    drawAxis(p);
+  }
+
+  function update(dt) {
+    if (paused) return;
+    const p = params();
+    // stark verlangsamte Darstellung: ca. 0,5–5 Hz sichtbar
+    const visF = Math.min(5, Math.max(0.25, p.f / 120));
+    phase += 2 * Math.PI * visF * dt;
+  }
+
+  function loop(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  endBtn.addEventListener('click', () => {
+    fixedBoth = !fixedBoth;
+    endBtn.textContent = fixedBoth ? 'Enden: fest – fest' : 'Enden: fest – lose';
+    phase = 0;
+  });
+
+  partBtn.addEventListener('click', () => {
+    showParts = !showParts;
+    partBtn.classList.toggle('on', showParts);
+    partBtn.textContent = showParts ? 'Teilwellen ausblenden' : 'Teilwellen zeigen';
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Weiter' : 'Pause';
+    pauseBtn.classList.toggle('on', paused);
+  });
+
+  [lenEl, spdEl, modeEl].forEach(el => el.addEventListener('input', () => {
+    phase = 0;
+    updateReadout();
+  }));
+
+  window.addEventListener('resize', () => { fitCanvas(); draw(); });
+  fitCanvas();
+  updateReadout();
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lorentzkraft – Bahn im Magnetfeld (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --pink:#f48fb1; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1000px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1000px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1000/560;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:200px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:66px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 15px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.warn{background:rgba(255,138,101,.14);border-color:rgba(255,138,101,.5);color:var(--warm)}
+  button.warn:hover{background:rgba(255,138,101,.26)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.amber{color:var(--accent2)}
+  .readout .v.pink{color:var(--pink)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Lorentzkraft – <span>Bahn im Magnetfeld</span></h1>
+  <p class="subtitle">geladene Teilchen senkrecht zu B · Kreisbahn · r = m·v / (q·B)</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Kreisbahn eines geladenen Teilchens im homogenen Magnetfeld"></canvas>
+
+    <div class="controls">
+      <label>Magnetfeld B <input id="bb" type="range" min="2" max="20" step="0.5" value="8"><output id="bbv">8,0 mT</output></label>
+      <label>Geschwindigkeit v <input id="vv" type="range" min="1" max="3.5" step="0.1" value="2.5"><output id="vvv">2,5 · 10⁶ m/s</output></label>
+    </div>
+
+    <div class="controls">
+      <button id="partBtn">Teilchen: Elektron</button>
+      <button id="fieldBtn">Feldrichtung umkehren</button>
+      <button id="resetBtn">⟲ Start</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Bahnradius r</div><div class="v amber" id="rR">–</div></div>
+      <div><div class="k">Umlaufdauer T</div><div class="v" id="rT">–</div></div>
+      <div><div class="k">Frequenz f</div><div class="v" id="rF">–</div></div>
+      <div><div class="k">Lorentzkraft F</div><div class="v pink" id="rFl">–</div></div>
+    </div>
+
+    <p class="hint">
+      <b>Drei-Finger-Regel:</b> Daumen in Richtung von v, Zeigefinger in Richtung von B – der Mittelfinger
+      zeigt für <i>positive</i> Ladungen in Richtung der Kraft. Die Kraft steht immer senkrecht auf v und auf B;
+      sie ändert deshalb nur die Richtung, nicht den Betrag der Geschwindigkeit. Weil F<sub>L</sub> = q·v·B
+      zugleich die Zentripetalkraft m·v²/r ist, gilt r = m·v/(q·B). Die Umlaufdauer T = 2π·m/(q·B) hängt
+      <i>nicht</i> von v ab – schnellere Teilchen fliegen auf größeren Bahnen, brauchen aber gleich lange.
+      Die Feldstärkebereiche sind je Teilchen so gewählt, dass die Bahn sichtbar bleibt; die Animation ist
+      stark verlangsamt.
+    </p>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 560;
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const CX = 470, CY = 290;
+
+  const bbEl = document.getElementById('bb');
+  const vvEl = document.getElementById('vv');
+  const bbv = document.getElementById('bbv');
+  const vvv = document.getElementById('vvv');
+  const rR = document.getElementById('rR');
+  const rT = document.getElementById('rT');
+  const rF = document.getElementById('rF');
+  const rFl = document.getElementById('rFl');
+  const partBtn = document.getElementById('partBtn');
+  const fieldBtn = document.getElementById('fieldBtn');
+
+  const PARTICLES = [
+    { key:'e', name:'Elektron', m:9.109e-31, q:-1.602e-19, bMin:6,   bMax:20,  bDef:8,   bStep:0.5, scale:70,  sym:'e⁻' },
+    { key:'p', name:'Proton',   m:1.6726e-27, q:1.602e-19, bMin:60,  bMax:200, bDef:80,  bStep:5,   scale:380, sym:'p⁺' },
+    { key:'a', name:'Alpha',    m:6.6447e-27, q:3.204e-19, bMin:120, bMax:400, bDef:160, bStep:10,  scale:380, sym:'α' }
+  ];
+
+  let pIdx = 0;
+  let bInto = true;
+  let theta = Math.PI / 2;   // Startpunkt unten (Bildschirmkoordinaten)
+  let lastTs = 0;
+
+  const de = (v, d = 2) => Number(v).toLocaleString('de-DE', {minimumFractionDigits:d, maximumFractionDigits:d});
+  const SUPS = {'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+  function sup(n) { return String(n).split('').map(c => SUPS[c] || c).join(''); }
+  function sci(v, unit) {
+    if (!isFinite(v) || v === 0) return '0 ' + unit;
+    const e = Math.floor(Math.log10(Math.abs(v)));
+    const m = v / Math.pow(10, e);
+    return de(m, 2) + ' · 10' + sup(e) + ' ' + unit;
+  }
+
+  function P() { return PARTICLES[pIdx]; }
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function params() {
+    const p = P();
+    const B = parseFloat(bbEl.value) * 1e-3;
+    const v = parseFloat(vvEl.value) * 1e6;
+    const r = p.m * v / (Math.abs(p.q) * B);
+    const T = 2 * Math.PI * p.m / (Math.abs(p.q) * B);
+    const F = Math.abs(p.q) * v * B;
+    return { p, B, v, r, T, f: 1 / T, F };
+  }
+
+  function updateReadout() {
+    const s = params();
+    bbv.textContent = de(parseFloat(bbEl.value), 1) + ' mT';
+    vvv.textContent = de(parseFloat(vvEl.value), 1) + ' · 10⁶ m/s';
+    rR.textContent = de(s.r * 1000, 2) + ' mm';
+    rT.textContent = de(s.T * 1e9, 1) + ' ns';
+    rF.textContent = de(s.f / 1e6, 2) + ' MHz';
+    rFl.textContent = sci(s.F, 'N');
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0c1830');
+    grd.addColorStop(1, '#08111f');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+
+    // Feld symbole
+    ctx.strokeStyle = 'rgba(126,231,135,0.16)';
+    ctx.fillStyle = 'rgba(126,231,135,0.16)';
+    ctx.lineWidth = 1.2;
+    for (let x = 40; x < W; x += 44) {
+      for (let y = 40; y < H; y += 44) {
+        if (bInto) {
+          ctx.beginPath();
+          ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4);
+          ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4);
+          ctx.stroke();
+        } else {
+          ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(x, y, 4.4, 0, Math.PI * 2); ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function drawOrbit(s) {
+    const R = Math.max(2, s.r * 1000 * s.p.scale);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(79,195,247,0.28)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([7, 7]);
+    ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Zentrum
+    ctx.fillStyle = 'rgba(138,160,189,0.8)';
+    ctx.beginPath(); ctx.arc(CX, CY, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(138,160,189,0.35)';
+    ctx.beginPath(); ctx.moveTo(CX - 9, CY); ctx.lineTo(CX + 9, CY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(CX, CY - 9); ctx.lineTo(CX, CY + 9); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTrail(s) {
+    const R = Math.max(2, s.r * 1000 * s.p.scale);
+    const sgn = motionSign();
+    ctx.save();
+    ctx.lineWidth = 2.6;
+    for (let i = 0; i < 26; i++) {
+      const a0 = theta - sgn * (i + 1) * 0.045;
+      const a1 = theta - sgn * i * 0.045;
+      ctx.strokeStyle = `rgba(126,231,135,${0.5 * (1 - i / 26)})`;
+      ctx.beginPath();
+      ctx.arc(CX, CY, R, Math.min(a0, a1), Math.max(a0, a1));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function motionSign() {
+    // positive Ladung + B in die Ebene hinein → auf dem Bildschirm gegen den Uhrzeigersinn
+    return (P().q > 0 ? -1 : 1) * (bInto ? 1 : -1);
+  }
+
+  function drawVector(x, y, dx, dy, color, label, mid = false) {
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    const ux = dx / len, uy = dy / len;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx, y + dy); ctx.stroke();
+    const ex = x + dx, ey = y + dy, head = 10;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - ux * head - uy * head * 0.45, ey - uy * head + ux * head * 0.45);
+    ctx.lineTo(ex - ux * head + uy * head * 0.45, ey - uy * head - ux * head * 0.45);
+    ctx.closePath(); ctx.fill();
+    if (label) {
+      ctx.font = '600 12px Segoe UI, sans-serif';
+      let tx, ty;
+      if (mid) {
+        tx = x + dx * 0.55 - uy * 16;
+        ty = y + dy * 0.55 + ux * 16 + 4;
+        ctx.textAlign = 'center';
+      } else if (Math.abs(ux) > 0.5) {
+        ctx.textAlign = ux > 0 ? 'left' : 'right';
+        tx = ex + ux * 10; ty = ey + 4;
+      } else {
+        ctx.textAlign = 'center';
+        tx = ex; ty = ey + (uy > 0 ? 16 : -8);
+      }
+      const tw = ctx.measureText(label).width;
+      const bx = ctx.textAlign === 'right' ? tx - tw - 4 : ctx.textAlign === 'center' ? tx - tw / 2 - 4 : tx - 4;
+      ctx.fillStyle = 'rgba(8,17,31,0.8)';
+      ctx.fillRect(bx, ty - 10, tw + 8, 15);
+      ctx.fillStyle = color;
+      ctx.fillText(label, tx, ty);
+    }
+    ctx.restore();
+  }
+
+  function drawParticle(s) {
+    const R = Math.max(2, s.r * 1000 * s.p.scale);
+    const px = CX + R * Math.cos(theta);
+    const py = CY + R * Math.sin(theta);
+    const sgn = motionSign();
+
+    // Geschwindigkeit
+    const vLen = 40 + (parseFloat(vvEl.value) - 1) * 16;
+    drawVector(px, py, sgn * (-Math.sin(theta)) * vLen, sgn * Math.cos(theta) * vLen, '#ffd54f', 'v');
+
+    // Lorentzkraft zum Zentrum
+    const fLen = Math.min(95, 34 + Math.log10(s.F / 1e-16 + 1) * 8);
+    drawVector(px, py, (CX - px) / R * fLen, (CY - py) / R * fLen, '#ff8a65', 'F_L', true);
+
+    // Radius
+    ctx.save();
+    ctx.strokeStyle = 'rgba(79,195,247,0.35)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(CX, CY); ctx.lineTo(px, py); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(79,195,247,0.85)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    const rvx = (px - CX), rvy = (py - CY);
+    const rvl = Math.hypot(rvx, rvy) || 1;
+    const lx = CX + rvx * 0.62 - rvy / rvl * 16;
+    const ly = CY + rvy * 0.62 + rvx / rvl * 16;
+    ctx.fillText('r = ' + de(s.r * 1000, 2) + ' mm', lx, ly + 4);
+    ctx.restore();
+
+    // Teilchen
+    const glow = ctx.createRadialGradient(px - 3, py - 3, 2, px, py, 16);
+    glow.addColorStop(0, 'rgba(201,247,207,0.95)');
+    glow.addColorStop(0.4, 'rgba(126,231,135,0.5)');
+    glow.addColorStop(1, 'rgba(126,231,135,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(px, py, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#7ee787';
+    ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(201,247,207,0.9)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.fillStyle = '#06210f';
+    ctx.font = '700 10px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s.p.sym, px, py + 0.5);
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  function niceScale(mmPerPx) {
+    // mmPerPx: reale mm pro Pixel
+    const candidates = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
+    for (const c of candidates) {
+      const px = c / mmPerPx;
+      if (px >= 55 && px <= 150) return { mm: c, px };
+    }
+    return { mm: 1, px: 1 / mmPerPx };
+  }
+
+  function drawScaleBar(s) {
+    const mmPerPx = 1 / s.p.scale;
+    const bar = niceScale(mmPerPx);
+    const x = 44, y = 522;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(230,238,248,0.75)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + bar.px, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x, y + 5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + bar.px, y - 5); ctx.lineTo(x + bar.px, y + 5); ctx.stroke();
+    ctx.fillStyle = 'rgba(230,238,248,0.85)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(de(bar.mm, bar.mm < 1 ? 1 : 0) + ' mm', x + bar.px + 8, y + 4);
+    ctx.restore();
+  }
+
+  function drawLegend(s) {
+    const x = 742, y = 66, w = 224, h = 104;
+    ctx.save();
+    ctx.fillStyle = 'rgba(10,21,36,0.75)';
+    ctx.strokeStyle = 'rgba(126,231,135,0.25)';
+    ctx.lineWidth = 1;
+    roundRect(x, y, w, h, 12, true, true);
+    ctx.fillStyle = 'rgba(126,231,135,0.9)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Magnetfeld B = ' + de(parseFloat(bbEl.value), 1) + ' mT', x + 14, y + 24);
+    ctx.fillStyle = 'rgba(230,238,248,0.75)';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.fillText(bInto ? '⊗  in die Ebene hinein' : '⊙  aus der Ebene heraus', x + 14, y + 45);
+    ctx.fillText(s.p.name + '  ·  q = ' + (s.p.q > 0 ? '+' : '−') + de(Math.abs(s.p.q) / 1.602e-19, 0) + ' e', x + 14, y + 66);
+    ctx.fillStyle = 'rgba(138,160,189,0.75)';
+    ctx.fillText('Bahn: ' + (motionSign() < 0 ? 'gegen den Uhrzeigersinn' : 'im Uhrzeigersinn'), x + 14, y + 87);
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  function draw() {
+    updateReadout();
+    const s = params();
+    drawBackground();
+    drawOrbit(s);
+    drawTrail(s);
+    drawParticle(s);
+    drawScaleBar(s);
+    drawLegend(s);
+  }
+
+  function update(dt) {
+    const s = params();
+    const omegaVis = 0.25 * (parseFloat(bbEl.value) / s.p.bMin);
+    theta += motionSign() * omegaVis * dt;
+  }
+
+  function loop(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function applyParticle(idx) {
+    pIdx = idx;
+    const p = P();
+    bbEl.min = p.bMin;
+    bbEl.max = p.bMax;
+    bbEl.step = p.bStep;
+    bbEl.value = p.bDef;
+    partBtn.textContent = 'Teilchen: ' + p.name;
+    theta = Math.PI / 2;
+    updateReadout();
+  }
+
+  partBtn.addEventListener('click', () => {
+    applyParticle((pIdx + 1) % PARTICLES.length);
+  });
+
+  fieldBtn.addEventListener('click', () => {
+    bInto = !bInto;
+    theta = Math.PI / 2;
+    fieldBtn.textContent = bInto ? 'Feldrichtung umkehren' : 'Feld: aus der Ebene';
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => { theta = Math.PI / 2; });
+
+  [bbEl, vvEl].forEach(el => el.addEventListener('input', updateReadout));
+
+  window.addEventListener('resize', () => { fitCanvas(); draw(); });
+  fitCanvas();
+  applyParticle(0);
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
