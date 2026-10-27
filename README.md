@@ -1,6 +1,6 @@
 # Physik-Simulationen
 
-Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasium (Bildungsplan 2016, Baden-Württemberg). Die Auswahl orientiert sich an Themen, die Schülerinnen und Schülern erfahrungsgemäß besonders schwer fallen – etwa Potenzial und Spannung, das Lesen von Bewegungsdiagrammen, die Zentripetalkraft, die Bildentstehung an Linsen, die Strahlungsbilanz der Erde oder die Statistik des radioaktiven Zerfalls.
+Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasium (Bildungsplan 2016, Baden-Württemberg). Die Auswahl orientiert sich an Themen, die Schülerinnen und Schülern erfahrungsgemäß besonders schwer fallen – etwa Potenzial und Spannung, das Lesen von Bewegungsdiagrammen, die Zentripetalkraft, die Bildentstehung an Linsen, die Strahlungsbilanz der Erde oder die Statistik des radioaktiven Zerfalls. Für die Oberstufe kommen der RC-Kreis, die Lorentzkraft, stehende Wellen, die Interferenz am Doppelspalt und Gitter, der Photoeffekt sowie die Energieniveaus des Wasserstoffs hinzu.
 
 **Startseite:** [`index.html`](index.html) – alle Simulationen auf einen Blick.
 
@@ -15,7 +15,7 @@ Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasi
 | Optik | [Mondphasen](Optik/Mondphasen.html) | 7/8 | Beleuchtung und Perspektive |
 | Optik | [Schatten](Optik/Schatten.html) | 7/8 | Kernschatten, Halbschatten |
 | Optik | [Sonne, Mond und Sterne](Optik/SonneMondSterne.html) | 7/8 | Größen und Entfernungen |
-| Optik | [Doppelspalt & Gitter](Optik/Doppelspalt.html) | 11/13 | Interferenz, Gangunterschied, Einzelspalt-Mindest |
+| Optik | [Doppelspalt & Gitter](Optik/Doppelspalt.html) | 11/13 | Interferenz, Gangunterschied, Einzelspalt-Minima |
 | Energie | [Energieerhaltung](Energie/Energieerhaltung.html) | 7/8 | Energieformen und -übertragung |
 | Schwingungen & Wellen | [Stehende Wellen](Schwingungen/Stehende-Wellen.html) | 11/13 | Eigenfrequenzen, Knoten, Bäuche, Reflexion |
 | E-Lehre | [Spannung & Potenzial](E-Lehre/Spannung-Potenzial.html) | 8/9 | Potenzialdifferenz, Energie pro Ladung |
@@ -42,7 +42,7 @@ Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasi
 - **Kondensator (Kl. 11/13):** Die Exponentialfunktion beim Auf- und Entladen eines RC-Kreises ist formal anspruchsvoll und wird oft nur als Formel gelernt. Hier sind Lade- und Entladevorgang gleichzeitig als U(t)- und I(t)-Kurve sichtbar, τ = R·C lässt sich direkt verändern und die gespeicherte Ladung bzw. Energie wird mitgelesen.
 - **Lorentzkraft (Kl. 11/13):** Die Richtung der Kraft auf bewegte Ladungen und die Kreisbahn im Magnetfeld sind ohne räumliche Vorstellung kaum zugänglich. Die Simulation zeigt Elektron, Proton und α-Teilchen in derselben Feldkonfiguration, macht die Drei-Finger-Regel sichtbar und berechnet Radius und Umlaufdauer aus r = m·v/(q·B).
 - **Stehende Wellen (Kl. 11/13):** Knoten, Bäuche und Oberschwingungen lassen sich schwer mit der Wellengleichung verknüpfen. Die Simulation blendet die beiden gegenläufigen Teilwellen und ihre Einhüllende ein und zeigt, dass die Eigenfrequenzen von den Randbedingungen abhängen (beidseitig fest: f = n·c/(2L), einseitig offen: f = (2n−1)·c/(4L)).
-- **Doppelspalt und Gitter (Kl. 11/13):** Der Unterschied zwischen Interferenz am Doppelspalt und am Vielspaltgitter sowie die Rolle der Einzelspalt-Einhüllenden sind schwer zu durchschauen. Die Simulation erlaubt N = 2 bis 20 Spalte und zeigt Intensitätsverlauf, Schirmbild und Geometrie gleichzeitig.
+- **Doppelspalt und Gitter (Kl. 11/13):** Der Unterschied zwischen Interferenz am Doppelspalt und am Vielspaltgitter sowie die Rolle der Einzelspalt-Einhüllenden sind schwer zu durchschauen. Die Simulation erlaubt N = 2, 3, 5, 10 und 20 Spalte und zeigt Intensitätsverlauf, Schirmbild und Geometrie gleichzeitig.
 - **Photoeffekt (Kl. 11/13):** Die Einstein-Gleichung widerspricht der klassischen Wellenvorstellung. Intensität, Wellenlänge und Gegenspannung sind getrennt einstellbar, sodass sichtbar wird: die Lichtintensität ändert nur die Anzahl der Elektronen, die Frequenz bestimmt ihre maximale kinetische Energie.
 - **Energieniveaus des Wasserstoffs (Kl. 11/13):** Termschemata, Serien und die Frequenzbedingung hν = ΔE bleiben oft abstrakt. Die Simulation verbindet das Niveauschema mit den beobachteten Spektrallinien und unterscheidet Emission und Absorption am selben Übergang.
 
@@ -59,7 +59,7 @@ Die Simulationen sind eigenständige HTML-Dateien ohne externe Bibliotheken und 
 - **Kondensator:** `U(t) = U₀·(1 − e^(−t/τ))` beim Laden, `U(t) = U₀·e^(−t/τ)` beim Entladen, `I(t) = −C·dU/dt`, `τ = R·C`, `W = ½CU²`; Bauteile ideal, Innenwiderstand der Quelle vernachlässigt.
 - **Lorentzkraft:** `F = q·v×B`, `r = m·v/(q·B)`, `T = 2πm/(qB)`; nichtrelativistisch, homogenes Feld senkrecht zur Bewegungsrichtung, keine Energieänderung durch das Magnetfeld.
 - **Stehende Wellen:** Überlagerung zweier gegenläufiger harmonischer Wellen gleicher Frequenz und Amplitude, `y(x,t) = 2ŷ·sin(kx)·cos(ωt)`; feste Enden sind Knoten, ein loses Ende ist ein Bauch; Dispersion vernachlässigt (`c` konstant).
-- **Doppelspalt/Gitter:** `I(θ) = I₀·(sin(β)/β)²·(sin(Nγ)/sin γ)²` mit `β = πa·sinθ/λ` und `γ = πd·sinθ/λ`; Fernfeldnäherung (Schirmabstand ≫ Spaltabstand), parallele Strahlen, Kohärenz und gleiche Spaltbreiten vorausgesetzt.
+- **Doppelspalt/Gitter:** `I(θ) = I₀·(sin β/β)²·(sin(Nγ)/(N·sin γ))²` mit `β = πa·sinθ/λ` und `γ = πd·sinθ/λ`; Fernfeldnäherung (Schirmabstand ≫ Spaltabstand), parallele Strahlen, Kohärenz und gleiche Spaltbreiten vorausgesetzt.
 - **Photoeffekt:** `E_ph = h·f = hc/λ`, `E_kin,max = h·f − W_A`, `e·U_G = E_kin,max`; Austrittsarbeiten nach Lehrbuchwerten, keine Berücksichtigung der Bandstruktur oder thermischer Emission.
 - **Energieniveaus:** `E_n = −13,6 eV/n²`, `h·f = E_m − E_n`; unendlich schwerer Kern (keine reduzierte Masse), keine Feinstruktur, Linienbreiten und Dopplerverbreiterung vernachlässigt.
 
