@@ -249,7 +249,7 @@
     ctx.fillStyle = 'rgba(230,238,248,0.7)';
     ctx.font = '10px Segoe UI, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('0', x0, BAR_Y + BAR_H + 15);
+    ctx.fillText('0. Ordnung', x0, BAR_Y + BAR_H + 16);
   }
 
   function drawPlot() {
@@ -375,8 +375,8 @@
     // Blende mit Spalten
     ctx.strokeStyle = 'rgba(230,238,248,0.75)';
     ctx.lineWidth = 4;
-    const drawCount = Math.min(N, 9);
-    const spacing = N === 2 ? 26 : Math.max(5, 70 / (drawCount - 1));
+    const drawCount = Math.min(N, 7);
+    const spacing = N === 2 ? 26 : Math.max(9, 96 / (drawCount - 1));
     const gaps = [];
     for (let i = 0; i < drawCount; i++) {
       gaps.push(yMid + (i - (drawCount - 1) / 2) * spacing);
@@ -388,14 +388,15 @@
     } else {
       let yPrev = yMid - 74;
       gaps.forEach(gy => {
-        ctx.beginPath(); ctx.moveTo(slitX, yPrev); ctx.lineTo(slitX, gy - 1.6); ctx.stroke();
-        yPrev = gy + 1.6;
+        ctx.beginPath(); ctx.moveTo(slitX, yPrev); ctx.lineTo(slitX, gy - 2.2); ctx.stroke();
+        yPrev = gy + 2.2;
       });
       ctx.beginPath(); ctx.moveTo(slitX, yPrev); ctx.lineTo(slitX, yMid + 74); ctx.stroke();
     }
 
-    // Spaltabstand d
-    const yA = gaps[0], yB = gaps[gaps.length - 1];
+    // Spaltabstand d (bei Gittern: Abstand benachbarter Spalte)
+    const ci = Math.floor((drawCount - 1) / 2);
+    const yA = gaps[ci], yB = gaps[ci + 1];
     const bx = slitX + 36;
     ctx.strokeStyle = 'rgba(255,213,79,0.85)';
     ctx.lineWidth = 1.2;
@@ -424,7 +425,7 @@
     // Strahlenfächer
     const targets = [yMid - 46, yMid, yMid + 46];
     ctx.lineWidth = 1;
-    gaps.slice(0, 4).forEach(gy => {
+    gaps.slice(Math.max(0, ci - 1), Math.min(drawCount, ci + 2)).forEach(gy => {
       targets.forEach(ty => {
         ctx.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.26)`;
         ctx.beginPath(); ctx.moveTo(slitX, gy); ctx.lineTo(screenX, ty); ctx.stroke();

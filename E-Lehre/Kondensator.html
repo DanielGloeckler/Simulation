@@ -82,9 +82,9 @@
       <b>Zeitkonstante:</b> Nach einer Zeit τ = R·C hat der Kondensator beim Aufladen 63,2 % der
       Endspannung erreicht; nach 5 τ sind es 99,3 %. Der Strom ist am Anfang am größten und fällt
       exponentiell ab, weil die Spannung am Widerstand U<sub>R</sub> = U₀ − U<sub>C</sub> ebenfalls abnimmt.
-      Beim Entladen treibt die gespeicherte Ladung den Strom selbst durch den Widerstand – deshalb
-      fließt er jetzt in die entgegengesetzte Richtung. Die Kurven sind hier gegenüber der Realzeit
-      um den Faktor 2 gerafft.
+      Beim Entladen wird die Quelle abgetrennt; die gespeicherte Ladung treibt den Strom selbst
+      durch den Widerstand – deshalb fließt er jetzt in die entgegengesetzte Richtung. Die Kurven
+      sind hier gegenüber der Realzeit um den Faktor 2 gerafft.
     </p>
   </section>
 </main>
@@ -228,27 +228,37 @@
     drawWire(CI.right, CI.top, CI.right, 245);
     drawWire(CI.right, 285, CI.right, CI.bottom);
     drawWire(CI.right, CI.bottom, CI.left, CI.bottom);
-    drawWire(CI.left, CI.bottom, CI.left, 290);
-    drawWire(CI.left, 240, CI.left, CI.top);
 
-    // Batterie
-    ctx.strokeStyle = 'rgba(230,238,248,0.9)';
-    ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(CI.left - 22, 242); ctx.lineTo(CI.left + 22, 242); ctx.stroke();
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(CI.left - 12, 258); ctx.lineTo(CI.left + 12, 258); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(CI.left - 22, 274); ctx.lineTo(CI.left + 22, 274); ctx.stroke();
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(CI.left - 12, 290); ctx.lineTo(CI.left + 12, 290); ctx.stroke();
-    ctx.fillStyle = 'rgba(138,160,189,0.95)';
-    ctx.font = '13px Segoe UI, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(`U₀ = ${de(p.u0, 1)} V`, CI.left - 32, 272);
-    ctx.fillStyle = 'rgba(255,213,79,0.95)';
-    ctx.font = '600 15px Segoe UI, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('+', CI.left - 32, 238);
-    ctx.fillText('−', CI.left - 32, 296);
+    if (mode === 'charge') {
+      drawWire(CI.left, CI.bottom, CI.left, 290);
+      drawWire(CI.left, 240, CI.left, CI.top);
+
+      // Batterie
+      ctx.strokeStyle = 'rgba(230,238,248,0.9)';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(CI.left - 22, 242); ctx.lineTo(CI.left + 22, 242); ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(CI.left - 12, 258); ctx.lineTo(CI.left + 12, 258); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(CI.left - 22, 274); ctx.lineTo(CI.left + 22, 274); ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(CI.left - 12, 290); ctx.lineTo(CI.left + 12, 290); ctx.stroke();
+      ctx.fillStyle = 'rgba(138,160,189,0.95)';
+      ctx.font = '13px Segoe UI, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`U₀ = ${de(p.u0, 1)} V`, CI.left - 32, 272);
+      ctx.fillStyle = 'rgba(255,213,79,0.95)';
+      ctx.font = '600 15px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('+', CI.left - 32, 238);
+      ctx.fillText('−', CI.left - 32, 296);
+    } else {
+      // Entladen: Quelle abgetrennt, Kreis über den Widerstand geschlossen
+      drawWire(CI.left, CI.bottom, CI.left, CI.top);
+      ctx.fillStyle = 'rgba(138,160,189,0.8)';
+      ctx.font = '12px Segoe UI, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('Quelle abgetrennt', CI.left - 12, 272);
+    }
 
     // Schalter (geschlossen)
     ctx.fillStyle = 'rgba(180,205,230,0.75)';

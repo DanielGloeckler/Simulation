@@ -183,7 +183,7 @@
     intv.textContent = de(parseFloat(intEl.value), 0) + ' %';
     ugv.textContent = de(s.Ug, 2) + ' V';
     rEph.textContent = de(s.Eph, 2) + ' eV';
-    rEkin.textContent = s.emit ? de(s.Ekin, 2) + ' eV' : '0 eV (keine Emission)';
+    rEkin.textContent = s.emit ? de(s.Ekin, 2) + ' eV' : 'keine Emission';
     rLamG.textContent = de(s.lamG, 0) + ' nm';
     rFG.textContent = de(s.fG / 1e12, 0) + ' THz';
     rI.textContent = de(s.Irel * 100, 0) + ' %';
