@@ -9,6 +9,7 @@ Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasi
 | Gebiet | Simulation | Klassenstufe | Schwerpunkt |
 | --- | --- | --- | --- |
 | Akustik | [Schallausbreitung](Akustik/Schallausbreitung.html) | 7/8 | Teilchenmodell, Verdichtung und Verdünnung |
+| Akustik | [Milchkarton-Gitarre](Akustik/Milchkarton-Gitarre.html) | 7/8 | Schwingungsdauer, Tonhöhe, Resonanzkörper |
 | Optik | [Optische Linsen](Optik/Linsen.html) | 7/8 | Strahlengang, Linsengleichung, reelle/virtuelle Bilder |
 | Optik | [Brechung & optische Hebung](Optik/Brechung.html) | 7/8 | Brechungsgesetz, Wahrnehmung |
 | Optik | [Lochkamera](Optik/Lochkammera.html) | 7/8 | Bildentstehung ohne Linse |
@@ -33,6 +34,7 @@ Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasi
 
 ## Warum diese Themen?
 
+- **Milchkarton-Gitarre (Kl. 7/8):** Dass ein kürzeres Gummiband höher klingt, ist bekannt – warum aber die Kartonwände mitschwingen und die Schwingungsdauer kleiner wird, bleibt abstrakt. Die Simulation verbindet Zupfen, Wandbewegung und Ausklingverhalten in einem Bild.
 - **Spannung und Potenzial (Kl. 8/9):** Spannung wird im Alltag oft als „Druck“ oder „verbrauchte Größe“ missverstanden. Die Simulation zeigt den Potenzialberg an der Batterie, den konstanten Verlauf entlang idealer Leitungen und den Potenzialabfall ausschließlich im Widerstand.
 - **Bewegungsdiagramme (Kl. 8/10):** Der Wechsel zwischen s-t-, v-t- und a-t-Diagramm sowie die Deutung von Steigung und Fläche bereiten große Schwierigkeiten. Hier laufen Auto, Kurven und Zeitcursor synchron.
 - **Kreisbewegung (Kl. 10):** Die Vorstellung einer nach außen wirkenden „Zentrifugalkraft“ ist hartnäckig. Die Simulation trennt Geschwindigkeit (tangential) und Zentripetalkraft (zum Zentrum) und zeigt beim Loslassen des Fadens die geradlinige Trägheitsbewegung.
@@ -51,6 +53,7 @@ Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasi
 Die Simulationen sind eigenständige HTML-Dateien ohne externe Bibliotheken und laufen offline im Browser.
 
 - **Linsen:** dünne Linse, achsennahe Strahlen, Linsengleichung `1/f = 1/g + 1/b`, Abbildungsmaßstab `m = -b/g`.
+- **Milchkarton-Gitarre:** gespannte Saite mit `f = (1/(2L))·√(F/μ)`, `T = 1/f`; die Kartonwand wird vereinfacht mit der Bandfrequenz angeregt, das Ausklingen über eine konstante Güte `τ = Q/(π·f)` mit `Q ≈ 24` modelliert. Kartonresonanz und Luftvolumen sind nicht berücksichtigt.
 - **Bewegungsdiagramme:** `s(t) = v₀t + ½at²`, `v(t) = v₀ + at`; Steigung und Flächen werden direkt am Graphen gedeutet.
 - **Kreisbewegung:** `v = ωr`, `a_z = v²/r`, `F_z = m·v²/r`; nach dem Loslassen bewegt sich der Körper geradlinig mit konstanter Geschwindigkeit.
 - **Spannung/Potenzial:** ideale Batterie, ideale Leitungen, `I = U/R`, `P = U·I`; das Potenzial ist als Höhenprofil dargestellt.

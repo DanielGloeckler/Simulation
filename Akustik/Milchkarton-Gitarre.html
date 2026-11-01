@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Interaktive Simulation der Milchkarton-Gitarre: Gummibänder zupfen, Stifte verschieben und die Schwingungsdauer der Kartonwände untersuchen.">
+<title>Milchkarton-Gitarre – interaktive Simulation</title>
+<style>
+  :root{
+    --bg:#070d18;
+    --panel:rgba(24,38,60,.9);
+    --panel-2:rgba(10,21,36,.72);
+    --line:rgba(126,231,135,.16);
+    --line-2:rgba(138,160,189,.16);
+    --text:#e6eef8;
+    --muted:#8aa0bd;
+    --accent:#7ee787;
+    --accent-soft:rgba(126,231,135,.14);
+    --amber:#ffd54f;
+    --warm:#ff8a65;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;min-height:100vh;padding:26px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(1100px 620px at 12% -10%, #173052 0%, transparent 60%),
+      radial-gradient(900px 520px at 100% 0%, #123b2f 0%, transparent 55%),
+      var(--bg);
+    -webkit-font-smoothing:antialiased;
+  }
+  header{max-width:1120px;margin:0 auto 22px}
+  .back{
+    display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;
+    color:var(--muted);text-decoration:none;font-size:.82rem;
+  }
+  .back:hover{color:var(--accent)}
+  .eyebrow{
+    display:inline-block;padding:4px 11px;margin-bottom:12px;border:1px solid var(--line);
+    border-radius:999px;background:rgba(126,231,135,.07);color:var(--accent);
+    font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;
+  }
+  h1{margin:0 0 10px;font-size:clamp(1.5rem,3.4vw,2.3rem);line-height:1.15;letter-spacing:-.01em}
+  h1 span{color:var(--accent)}
+  .subtitle{margin:0;max-width:830px;color:var(--muted);font-size:.98rem;line-height:1.55}
+  main{max-width:1120px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(26,41,66,.9),rgba(13,22,37,.94));
+    border:1px solid rgba(79,195,247,.14);
+    border-radius:16px;
+    box-shadow:0 18px 44px rgba(0,0,0,.35);
+  }
+
+  /* ---------- Arbeitsfläche ---------- */
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) 340px;overflow:hidden}
+  .stage{position:relative;min-width:0;padding:12px}
+  #scene{
+    display:block;width:100%;aspect-ratio:760/440;border-radius:12px;
+    background:radial-gradient(circle at 50% 44%, #0e1b2e 0%, #070e19 72%);
+    touch-action:none;cursor:grab;
+  }
+  .badge{
+    position:absolute;top:22px;left:22px;padding:5px 10px;border-radius:8px;
+    border:1px solid rgba(138,160,189,.22);background:rgba(7,13,24,.72);
+    color:var(--muted);font-size:.7rem;letter-spacing:.04em;backdrop-filter:blur(6px);
+  }
+  .toast{
+    position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
+    max-width:calc(100% - 40px);padding:8px 14px;border-radius:999px;
+    border:1px solid rgba(126,231,135,.25);background:rgba(7,13,24,.88);
+    color:#cfe0f5;font-size:.78rem;line-height:1.4;text-align:center;white-space:nowrap;
+    pointer-events:none;transition:opacity .5s ease, transform .5s ease;
+  }
+  .toast.hide{opacity:0;transform:translate(-50%,8px)}
+
+  /* ---------- Steuerung ---------- */
+  .side{padding:20px 18px 18px;border-left:1px solid var(--line-2)}
+  .side h2{margin:0 0 16px;font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .ctl{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 0 6px;color:#c2d1e4;font-size:.9rem;font-weight:600}
+  .ctl output{color:var(--accent);font-size:.86rem;font-weight:700;font-variant-numeric:tabular-nums}
+  input[type=range]{
+    display:block;width:100%;height:24px;margin:0 0 4px;background:transparent;
+    -webkit-appearance:none;appearance:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:rgba(138,160,189,.22)}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:18px;height:18px;margin-top:-6px;border-radius:50%;
+    background:var(--accent);border:3px solid #0b1524;box-shadow:0 0 0 1px rgba(126,231,135,.55);
+  }
+  input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:rgba(138,160,189,.22)}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);border:3px solid #0b1524}
+  input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:6px}
+  .mini{margin:0 0 18px;color:#6f83a0;font-size:.75rem;line-height:1.45}
+
+  .btnrow{display:flex;gap:8px;margin:2px 0 8px}
+  button{
+    padding:11px 14px;border:1px solid transparent;border-radius:10px;cursor:pointer;
+    font:inherit;font-size:.86rem;font-weight:700;transition:background .15s,border-color .15s,filter .15s,transform .1s;
+  }
+  button:active{transform:translateY(1px)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button.primary{
+    flex:1;color:#08210d;border-color:transparent;
+    background:linear-gradient(180deg,#8ff09a,#5fd76b);
+    box-shadow:0 6px 18px rgba(126,231,135,.22);
+  }
+  button.primary:hover{filter:brightness(1.06)}
+  button.ghost{background:rgba(126,231,135,.08);border-color:rgba(126,231,135,.3);color:var(--accent)}
+  button.ghost:hover{background:rgba(126,231,135,.16)}
+  button.ghost[aria-pressed="false"]{color:var(--muted);border-color:rgba(138,160,189,.25);background:rgba(138,160,189,.06)}
+  button.wide{width:100%;margin-bottom:16px}
+
+  .readouts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .readouts>div{padding:9px 10px;border:1px solid rgba(126,231,135,.12);border-radius:10px;background:var(--panel-2)}
+  .readouts .k{display:block;margin-bottom:3px;color:var(--muted);font-size:.63rem;letter-spacing:.06em;text-transform:uppercase}
+  .readouts .v{font-size:.97rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+  .readouts .v.amber{color:var(--amber)}
+  .readouts .v.good{color:var(--accent)}
+
+  .sentence{
+    margin:0 0 10px;padding:9px 11px;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
+    background:rgba(10,21,36,.55);color:#b9c9dd;font-size:.79rem;line-height:1.55;
+  }
+  .sentence b{color:var(--text)}
+  .compare{
+    margin:0;padding:9px 11px;border-left:3px solid var(--amber);border-radius:0 8px 8px 0;
+    background:rgba(255,213,79,.06);color:#c8d5e5;font-size:.79rem;line-height:1.55;
+  }
+  .compare b{color:var(--amber)}
+  .compare .cmp-hint{display:block;margin-top:4px;color:#8aa0bd;font-size:.72rem}
+  .compare[hidden]{display:none}
+
+  /* ---------- Diagramme ---------- */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  .grid2 .card{padding:14px 14px 8px}
+  .cardhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:2px 4px 8px}
+  .cardhead h2{margin:0;font-size:.92rem;letter-spacing:.01em}
+  .cardhead span{color:var(--muted);font-size:.71rem}
+  #sect,#scope{
+    display:block;width:100%;aspect-ratio:560/260;border-radius:10px;
+    background:#0a1524;touch-action:none;
+  }
+  .cap{margin:8px 4px 2px;color:var(--muted);font-size:.76rem;line-height:1.5}
+
+  /* ---------- Notizen ---------- */
+  .notes{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:22px;margin-top:16px;padding:22px 24px}
+  .notes h2{margin:0 0 9px;font-size:.98rem;color:var(--text)}
+  .notes p{margin:0 0 8px;color:var(--muted);font-size:.82rem;line-height:1.6}
+  .notes ol{margin:0;padding-left:18px;color:var(--muted);font-size:.82rem;line-height:1.6}
+  .notes li{margin-bottom:7px}
+  .notes li b{color:var(--text)}
+  .notes .mark{
+    padding:10px 12px;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
+    background:rgba(126,231,135,.06);color:#c8d5e5;font-size:.84rem;line-height:1.6;
+  }
+  .notes .mark b{color:var(--accent)}
+  details{margin-top:12px;padding-top:10px;border-top:1px solid var(--line-2)}
+  summary{cursor:pointer;color:var(--accent);font-size:.82rem;font-weight:600}
+  details p{font-size:.78rem}
+  code{padding:1px 5px;border-radius:4px;background:rgba(126,231,135,.1);color:#d7f5db;font-size:.92em}
+
+  footer{
+    display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;
+    margin-top:26px;padding-top:18px;border-top:1px solid var(--line-2);
+    color:var(--muted);font-size:.78rem;
+  }
+  footer a{color:var(--accent);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+
+  @media (max-width:920px){
+    .workspace{grid-template-columns:1fr}
+    .side{border-left:0;border-top:1px solid var(--line-2)}
+  }
+  @media (max-width:820px){
+    .grid2{grid-template-columns:1fr}
+    .notes{grid-template-columns:1fr}
+  }
+  @media (max-width:560px){
+    body{padding-top:18px}
+    .toast{white-space:normal;border-radius:12px}
+    .readouts{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="../index.html">← Alle Simulationen</a>
+  <div><span class="eyebrow">Akustik · Klasse 7/8</span></div>
+  <h1>Milchkarton-Gitarre – <span>warum schwingen die Wände?</span></h1>
+  <p class="subtitle">
+    Gummibänder über einen leeren Getränkekarton spannen, mit zwei Stiften die schwingende Länge festlegen –
+    und zupfen. Die Kartonwände schwingen mit und verstärken den Ton. Verschiebe die Stifte und beobachte,
+    wie sich Schwingungsdauer und Ausklingzeit verändern.
+  </p>
+</header>
+
+<main>
+  <section class="card workspace">
+    <div class="stage">
+      <canvas id="scene" aria-label="Milchkarton-Gitarre mit fünf Gummibändern und zwei verschiebbaren Stiften"></canvas>
+      <div class="badge" title="Die Schwingung wird verlangsamt dargestellt, damit man sie sehen kann.">Zeitraffer 1 : 16</div>
+      <div class="toast" id="toast">Stifte ziehen · Gummiband anklicken oder „Zupfen“ · Leertaste</div>
+    </div>
+
+    <aside class="side">
+      <h2>Einstellungen</h2>
+
+      <label class="ctl" for="dist">Abstand der Stifte <output id="distOut">12,0 cm</output></label>
+      <input type="range" id="dist" min="6" max="18" step="0.1" value="12" aria-label="Abstand der Stifte in Zentimetern">
+      <p class="mini">Du kannst die Stifte auch direkt im Bild anfassen und verschieben.</p>
+
+      <label class="ctl" for="tension">Spannung im Gummiband <output id="tensionOut">5,0 N</output></label>
+      <input type="range" id="tension" min="2" max="8" step="0.1" value="5" aria-label="Spannung im Gummiband in Newton">
+
+      <div class="btnrow">
+        <button type="button" class="primary" id="pluck">Zupfen</button>
+        <button type="button" class="ghost" id="sound" aria-pressed="true">🔊 Ton an</button>
+      </div>
+      <button type="button" class="ghost wide" id="remember">Wert merken</button>
+
+      <div class="readouts">
+        <div><span class="k">Bandlänge L</span><span class="v" id="rL">12,0 cm</span></div>
+        <div><span class="k">Frequenz f</span><span class="v amber" id="rF">120 Hz</span></div>
+        <div><span class="k">Schwingungsdauer T</span><span class="v good" id="rT">8,3 ms</span></div>
+        <div><span class="k">Ausklingzeit τ</span><span class="v" id="rTau">64 ms</span></div>
+      </div>
+
+      <p class="sentence" id="sentence"></p>
+      <p class="compare" id="compare" hidden></p>
+    </aside>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <div class="cardhead">
+        <h2>Querschnitt durch den Karton</h2>
+        <span>Auslenkung stark übertrieben</span>
+      </div>
+      <canvas id="sect" aria-label="Querschnitt des Kartons: Deckwand und Seitenwände schwingen hin und her"></canvas>
+      <p class="cap">
+        Die Gummibänder regen die Kartonwand an. Sie schwingt mit derselben Frequenz wie das Band –
+        ein kürzeres Band lässt sie schneller schwingen.
+      </p>
+    </section>
+
+    <section class="card">
+      <div class="cardhead">
+        <h2>Auslenkung–Zeit-Diagramm</h2>
+        <span>Fenster: 0 bis 350 ms</span>
+      </div>
+      <canvas id="scope" aria-label="Diagramm der Wandauslenkung über der Zeit mit abklingender Hüllkurve"></canvas>
+      <p class="cap">
+        Berechneter Verlauf der Wandauslenkung. Gestrichelt ist die abklingende Hüllkurve;
+        <b>τ</b> markiert die Ausklingzeit.
+      </p>
+    </section>
+  </div>
+
+  <section class="card notes">
+    <div>
+      <h2>Das Experiment</h2>
+      <p>
+        Ein leerer Getränkekarton wird mit mehreren Gummibändern bespannt. Zwei Stifte halten die Bänder
+        gespannt und legen die frei schwingende Länge fest.
+      </p>
+      <p>
+        Der Karton ist der <b>Resonanzkörper</b>: Seine Wände übernehmen die Schwingung der Bänder und
+        geben sie als Schall an die Luft ab. Deshalb ist die Gitarre viel lauter als ein einzelnes Gummiband.
+      </p>
+    </div>
+
+    <div>
+      <h2>Beobachtungsauftrag</h2>
+      <ol>
+        <li>Zupfe ein Gummiband. Beobachte im Querschnitt, wie die Kartonwand hin- und herschwingt.</li>
+        <li>Schiebe die Stifte enger zusammen. Wie ändern sich Tonhöhe, Schwingungsdauer <b>T</b> und Ausklingzeit <b>τ</b>?</li>
+        <li>Erhöhe die Spannung bei gleichem Abstand. Was passiert mit der Frequenz <b>f</b>?</li>
+      </ol>
+    </div>
+
+    <div>
+      <h2>Merksatz</h2>
+      <p class="mark">
+        Je kürzer das schwingende Gummiband, desto <b>höher</b> der Ton und desto <b>kleiner</b> die
+        Schwingungsdauer <b>T</b>. Ein kürzeres Band klingt außerdem <b>schneller ab</b>.
+      </p>
+      <details>
+        <summary>Physik dahinter</summary>
+        <p>
+          Für eine Saite der Länge <code>L</code>, die mit der Kraft <code>F</code> gespannt ist, gilt
+          <code>f = (1/(2L))·√(F/μ)</code> mit der Masse pro Länge <code>μ</code>.
+          Daraus folgt <code>T = 1/f</code>.
+        </p>
+        <p>
+          Die Ausklingzeit wird hier mit einer konstanten Güte <code>Q ≈ 24</code> modelliert:
+          <code>τ = Q/(π·f)</code>. Damit klingt ein höherer Ton schneller ab.
+          Die Kartonwand wird vereinfacht mit der Bandfrequenz angeregt; ihre eigene Resonanz
+          und die Luft im Karton sind nicht modelliert. Beim Verschieben der Stifte wird angenommen,
+          dass das Band so nachgespannt wird, dass die eingestellte Spannung erhalten bleibt.
+        </p>
+      </details>
+    </div>
+  </section>
+
+  <footer>
+    <span>Physik-Simulationen · Gymnasium Baden-Württemberg</span>
+    <span><a href="../index.html">Alle Simulationen</a> · <a href="https://github.com/DanielGloeckler/Simulation">Quellcode auf GitHub</a></span>
+  </footer>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const fmt = (v, d = 1) => v.toLocaleString('de-DE', {
+    minimumFractionDigits: d,
+    maximumFractionDigits: d
+  });
+
+  /* ---------------- Modell ---------------- */
+  const CARTON_CM = 21;      // Länge der bespannten Kartonoberseite
+  const MU = 0.006;          // Masse pro Länge des Gummibands in kg/m
+  const Q = 24;              // Güte (Modellwert)
+  const SLOW = 16;           // Zeitraffer: 1 s im Modell = 16 s auf dem Bildschirm
+  const D_MIN = 6, D_MAX = 18;
+  const WINDOW = 0.35;       // Zeitfenster des Diagramms in s
+
+  const state = {
+    uL: 0.5 - (12 / CARTON_CM) / 2,
+    uR: 0.5 + (12 / CARTON_CM) / 2,
+    tension: 5,
+    sound: true,
+    ringing: false,
+    envT: 0,
+    phase: 0,
+    amp: 0,
+    wave: 0,
+    flash: 0
+  };
+  let memory = null;
+  let drag = null;
+
+  function model() {
+    const L = (state.uR - state.uL) * CARTON_CM / 100;
+    const f = (1 / (2 * L)) * Math.sqrt(state.tension / MU);
+    const T = 1 / f;
+    const tau = Q / (Math.PI * f);
+    return { L, f, T, tau };
+  }
+  const distCm = () => (state.uR - state.uL) * CARTON_CM;
+
+  /* ---------------- Canvas-Grundlagen ---------------- */
+  const sceneCv = $('scene'), sceneCtx = sceneCv.getContext('2d');
+  const sectCv = $('sect'), sectCtx = sectCv.getContext('2d');
+  const scopeCv = $('scope'), scopeCtx = scopeCv.getContext('2d');
+
+  function fit(cv, ctx, vw, vh) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const rect = cv.getBoundingClientRect();
+    const w = Math.max(1, rect.width);
+    const h = Math.max(1, rect.height);
+    const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+    if (cv.width !== bw || cv.height !== bh) {
+      cv.width = bw;
+      cv.height = bh;
+    }
+    const s = Math.min(w / vw, h / vh);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.translate((w - vw * s) / 2, (h - vh * s) / 2);
+    ctx.scale(s, s);
+    return s;
+  }
+
+  /* ---------------- Szene ---------------- */
+  const G = { fl: [170, 252], fr: [598, 252], br: [664, 132], bl: [236, 132], h: 94 };
+
+  function facePt(u, v) {
+    const xf = G.fl[0] + (G.fr[0] - G.fl[0]) * u;
+    const yf = G.fl[1] + (G.fr[1] - G.fl[1]) * u;
+    const xb = G.bl[0] + (G.br[0] - G.bl[0]) * u;
+    const yb = G.bl[1] + (G.br[1] - G.bl[1]) * u;
+    return [xf + (xb - xf) * v, yf + (yb - yf) * v];
+  }
+
+  const BANDS = [
+    { v: 0.19, color: '#ff6b6b' },
+    { v: 0.345, color: '#ffd166' },
+    { v: 0.50, color: '#7ee787' },
+    { v: 0.655, color: '#4fc3f7' },
+    { v: 0.81, color: '#c792ea' }
+  ];
+
+  function bandPath(ctx, v, off) {
+    const N = 56;
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const s = i / N;
+      const u = state.uL + (state.uR - state.uL) * s;
+      const p = facePt(u, v);
+      const y = p[1] + off * Math.sin(Math.PI * s);
+      if (i === 0) ctx.moveTo(p[0], y);
+      else ctx.lineTo(p[0], y);
+    }
+  }
+
+  function drawStick(ctx, u) {
+    const a = facePt(u, -0.075);
+    const b = facePt(u, 1.075);
+
+    ctx.save();
+    ctx.translate(2, 3);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.strokeStyle = 'rgba(0,0,0,.32)';
+    ctx.lineWidth = 15;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.strokeStyle = '#6d4f28';
+    ctx.lineWidth = 14;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.strokeStyle = '#e9c98d';
+    ctx.lineWidth = 11;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1] - 2.5);
+    ctx.lineTo(b[0], b[1] - 2.5);
+    ctx.strokeStyle = 'rgba(255,248,225,.72)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  function drawScene() {
+    const ctx = sceneCtx;
+    fit(sceneCv, ctx, 760, 440);
+
+    const amp = state.amp;
+
+    // weicher Schatten
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.ellipse(415, 356, 246 + i * 13, 12 + i * 4, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,' + (0.11 - i * 0.03) + ')';
+      ctx.fill();
+    }
+
+    // Schallwellen
+    if (amp > 0.03) {
+      ctx.save();
+      ctx.strokeStyle = '#7ee787';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) {
+        const p = (state.wave + i / 3) % 1;
+        const r = 30 + p * 95;
+        ctx.globalAlpha = (1 - p) * 0.45 * Math.min(1, amp * 1.8);
+        ctx.beginPath();
+        ctx.arc(166, 294, r, Math.PI * 0.6, Math.PI * 1.4);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(602, 294, r, Math.PI * 1.6, Math.PI * 2.4);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    const fl = G.fl, fr = G.fr, br = G.br, bl = G.bl;
+
+    // rechte Seitenfläche
+    ctx.beginPath();
+    ctx.moveTo(fr[0], fr[1]);
+    ctx.lineTo(br[0], br[1]);
+    ctx.lineTo(br[0], br[1] + G.h);
+    ctx.lineTo(fr[0], fr[1] + G.h);
+    ctx.closePath();
+    let gr = ctx.createLinearGradient(fr[0], fr[1], br[0], br[1] + G.h);
+    gr.addColorStop(0, '#b9905f');
+    gr.addColorStop(1, '#997244');
+    ctx.fillStyle = gr;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(60,40,20,.55)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Frontwand
+    ctx.beginPath();
+    ctx.moveTo(fl[0], fl[1]);
+    ctx.lineTo(fr[0], fr[1]);
+    ctx.lineTo(fr[0], fr[1] + G.h);
+    ctx.lineTo(fl[0], fl[1] + G.h);
+    ctx.closePath();
+    gr = ctx.createLinearGradient(fl[0], fl[1], fl[0], fl[1] + G.h);
+    gr.addColorStop(0, '#dcb98b');
+    gr.addColorStop(1, '#bd9562');
+    ctx.fillStyle = gr;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(60,40,20,.55)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Schallloch
+    ctx.beginPath();
+    ctx.ellipse(400, 303, 24, 13, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a1105';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(90,62,30,.9)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(400, 300, 23, 12, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,240,210,.22)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Deckfläche
+    ctx.beginPath();
+    ctx.moveTo(fl[0], fl[1]);
+    ctx.lineTo(bl[0], bl[1]);
+    ctx.lineTo(br[0], br[1]);
+    ctx.lineTo(fr[0], fr[1]);
+    ctx.closePath();
+    gr = ctx.createLinearGradient(400, 132, 400, 252);
+    gr.addColorStop(0, '#f1dab6');
+    gr.addColorStop(1, '#ddc094');
+    ctx.fillStyle = gr;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(60,40,20,.55)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Kante zwischen Deckfläche und Frontwand
+    ctx.beginPath();
+    ctx.moveTo(fl[0], fl[1]);
+    ctx.lineTo(fr[0], fr[1]);
+    ctx.strokeStyle = 'rgba(90,60,25,.35)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Gummibänder
+    const bandOff = -7 * amp * Math.sin(state.phase);
+    BANDS.forEach(b => {
+      bandPath(ctx, b.v, bandOff + 2);
+      ctx.strokeStyle = 'rgba(20,10,0,.25)';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      bandPath(ctx, b.v, bandOff);
+      ctx.strokeStyle = b.color;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      bandPath(ctx, b.v, bandOff);
+      ctx.strokeStyle = 'rgba(255,255,255,.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // Stifte
+    drawStick(ctx, state.uL);
+    drawStick(ctx, state.uR);
+
+    // Zupf-Funken
+    if (state.flash > 0.01) {
+      ctx.save();
+      ctx.translate(400, 214);
+      ctx.globalAlpha = state.flash * 0.85;
+      ctx.strokeStyle = '#ffd54f';
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const r0 = 14 + (1 - state.flash) * 11;
+        const r1 = r0 + 13 * state.flash;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+        ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  /* ---------------- Querschnitt ---------------- */
+  function drawSection() {
+    const ctx = sectCtx;
+    fit(sectCv, ctx, 560, 260);
+
+    const m = model();
+    const amp = state.amp;
+    const d = 26 * amp * Math.sin(state.phase);
+    const bow = d * 0.42;
+    const x0 = 130, x1 = 430, top = 106, bot = 206;
+
+    // Ruhelage
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'rgba(138,160,189,.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0 - 34, top);
+    ctx.lineTo(x1 + 34, top);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Kartonquerschnitt
+    function boxPath() {
+      ctx.beginPath();
+      ctx.moveTo(x0, top);
+      const N = 48;
+      for (let i = 1; i <= N; i++) {
+        const s = i / N;
+        ctx.lineTo(x0 + (x1 - x0) * s, top - d * Math.sin(Math.PI * s));
+      }
+      ctx.quadraticCurveTo(x1 + bow, (top + bot) / 2, x1, bot);
+      ctx.lineTo(x0, bot);
+      ctx.quadraticCurveTo(x0 - bow, (top + bot) / 2, x0, top);
+      ctx.closePath();
+    }
+
+    const gi = ctx.createLinearGradient(0, top, 0, bot);
+    gi.addColorStop(0, '#12233a');
+    gi.addColorStop(1, '#0a1626');
+
+    boxPath();
+    ctx.fillStyle = gi;
+    ctx.fill();
+
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    boxPath();
+    ctx.strokeStyle = '#a8814e';
+    ctx.lineWidth = 12;
+    ctx.stroke();
+    boxPath();
+    ctx.strokeStyle = '#dfc093';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    boxPath();
+    ctx.strokeStyle = 'rgba(255,245,225,.6)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // Stifte im Querschnitt
+    [x0, x1].forEach(x => {
+      ctx.beginPath();
+      ctx.arc(x, top, 9, 0, Math.PI * 2);
+      ctx.fillStyle = '#e9c98d';
+      ctx.fill();
+      ctx.strokeStyle = '#6d4f28';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    });
+
+    // Auslenkungspfeil
+    if (Math.abs(d) > 1.6) {
+      const x = 280;
+      const y2 = top - d;
+      ctx.strokeStyle = '#ffd54f';
+      ctx.fillStyle = '#ffd54f';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, y2);
+      ctx.stroke();
+
+      const dir = d > 0 ? -1 : 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y2);
+      ctx.lineTo(x - 4, y2 - dir * 7);
+      ctx.lineTo(x + 4, y2 - dir * 7);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x, y2, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Beschriftung
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = '#e6eef8';
+    ctx.fillText('Kartonwand', 76, 58);
+    ctx.strokeStyle = 'rgba(138,160,189,.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(112, 64);
+    ctx.lineTo(196, top - 14);
+    ctx.stroke();
+
+    ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(138,160,189,.75)';
+    ctx.textAlign = 'right';
+    ctx.fillText('Ruhelage', 548, 90);
+    ctx.fillText('stark übertrieben', 548, 24);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(138,160,189,.6)';
+    ctx.font = '12px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText('Luft im Karton', 280, 164);
+
+    ctx.fillStyle = '#7ee787';
+    ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText('eine Schwingung: T = ' + fmt(m.T * 1000, 1) + ' ms', 280, 242);
+  }
+
+  /* ---------------- Diagramm ---------------- */
+  function drawScope() {
+    const ctx = scopeCtx;
+    fit(scopeCv, ctx, 560, 260);
+
+    const m = model();
+    const L = 56, R = 544, TOP = 26, BOT = 202;
+    const cy = (TOP + BOT) / 2;
+    const half = (BOT - TOP) / 2 - 10;
+    const xOf = t => L + (t / WINDOW) * (R - L);
+    const yOf = a => cy - a * half;
+
+    // Fläche
+    ctx.fillStyle = 'rgba(7,14,25,.72)';
+    ctx.fillRect(48, 20, 504, 190);
+    ctx.strokeStyle = 'rgba(138,160,189,.14)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(48.5, 20.5, 503, 189);
+
+    // Gitter
+    ctx.strokeStyle = 'rgba(138,160,189,.09)';
+    for (let ms = 50; ms <= 350; ms += 50) {
+      const x = xOf(ms / 1000);
+      ctx.beginPath();
+      ctx.moveTo(x, 20);
+      ctx.lineTo(x, 210);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(138,160,189,.2)';
+    ctx.beginPath();
+    ctx.moveTo(48, cy);
+    ctx.lineTo(552, cy);
+    ctx.stroke();
+
+    // Achsen
+    ctx.fillStyle = '#8aa0bd';
+    ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    [0, 100, 200, 300].forEach(ms => ctx.fillText(ms, xOf(ms / 1000), 224));
+    ctx.fillText('Zeit in ms', 300, 241);
+
+    ctx.save();
+    ctx.translate(18, cy);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Auslenkung', 0, 0);
+    ctx.restore();
+
+    // gemerkter Vergleich: Hüllkurve des früheren Verlaufs
+    if (memory) {
+      ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = 'rgba(196,212,234,.62)';
+      ctx.lineWidth = 1.2;
+      [-1, 1].forEach(sign => {
+        ctx.beginPath();
+        for (let i = 0; i <= 160; i++) {
+          const t = (WINDOW * i) / 160;
+          const x = xOf(t), y = yOf(sign * Math.exp(-t / memory.tau));
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+    }
+
+    // Hüllkurve
+    ctx.setLineDash([4, 5]);
+    ctx.strokeStyle = 'rgba(126,231,135,.3)';
+    ctx.lineWidth = 1;
+    [-1, 1].forEach(sign => {
+      ctx.beginPath();
+      for (let i = 0; i <= 160; i++) {
+        const t = (WINDOW * i) / 160;
+        const x = xOf(t), y = yOf(sign * Math.exp(-t / m.tau));
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // Schwingung
+    ctx.beginPath();
+    const N = 2400;
+    for (let i = 0; i <= N; i++) {
+      const t = (WINDOW * i) / N;
+      const a = Math.exp(-t / m.tau) * Math.sin(2 * Math.PI * m.f * t);
+      const x = xOf(t), y = yOf(a);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#7ee787';
+    ctx.lineWidth = 1.4;
+    ctx.shadowColor = 'rgba(126,231,135,.55)';
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Ausklingzeit
+    if (m.tau < WINDOW) {
+      const x = xOf(m.tau);
+      ctx.strokeStyle = 'rgba(255,213,79,.45)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, 20);
+      ctx.lineTo(x, 210);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#ffd54f';
+      ctx.font = '600 11px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('τ', x + 4, 34);
+    }
+
+    // Kopfzeile
+    ctx.fillStyle = '#c2d1e4';
+    ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('T = ' + fmt(m.T * 1000, 1) + ' ms   ·   f = ' + Math.round(m.f) + ' Hz', 56, 13);
+
+    if (memory) {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(196,212,234,.85)';
+      ctx.font = '10px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText('- - -  vorher', 542, 13);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  /* ---------------- Anzeige ---------------- */
+  const distEl = $('dist');
+  const tensionEl = $('tension');
+
+  function updateUI() {
+    const m = model();
+    const d = distCm();
+
+    $('distOut').textContent = fmt(d, 1) + ' cm';
+    $('tensionOut').textContent = fmt(state.tension, 1) + ' N';
+    $('rL').textContent = fmt(m.L * 100, 1) + ' cm';
+    $('rF').textContent = Math.round(m.f) + ' Hz';
+    $('rT').textContent = fmt(m.T * 1000, 1) + ' ms';
+    $('rTau').textContent = fmt(m.tau * 1000, 0) + ' ms';
+
+    distEl.value = String(clamp(d, D_MIN, D_MAX).toFixed(1));
+    tensionEl.value = String(state.tension);
+    $('sentence').innerHTML =
+      'Die Stifte stehen <b>' + fmt(d, 1) + ' cm</b> auseinander. Das Gummiband und die Kartonwand schwingen ' +
+      '<b>' + Math.round(m.f) + '-mal pro Sekunde</b>. Eine Schwingung dauert <b>' + fmt(m.T * 1000, 1) + ' ms</b>.';
+
+    const cmp = $('compare');
+    if (memory) {
+      cmp.hidden = false;
+      const ratio = memory.T / m.T;
+      let text;
+      if (Math.abs(ratio - 1) < 0.02) {
+        text = 'etwa <b>gleich geblieben</b>';
+      } else if (ratio > 1) {
+        text = '<b>' + fmt(ratio, 2) + '-mal kürzer</b>';
+      } else {
+        text = '<b>' + fmt(1 / ratio, 2) + '-mal länger</b>';
+      }
+      cmp.innerHTML =
+        'Gemerkt bei ' + fmt(memory.d, 1) + ' cm: T = ' + fmt(memory.T * 1000, 1) + ' ms. ' +
+        'Jetzt ist T ' + text + '.<br><span class="cmp-hint">Grau gestrichelt: die gemerkte Hüllkurve im Diagramm.</span>';
+    } else {
+      cmp.hidden = true;
+    }
+  }
+
+  function setDist(d) {
+    const half = (clamp(d, D_MIN, D_MAX) / CARTON_CM) / 2;
+    state.uL = 0.5 - half;
+    state.uR = 0.5 + half;
+  }
+
+  /* ---------------- Audio ---------------- */
+  let ac = null;
+
+  function playTone() {
+    try {
+      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+
+      const m = model();
+      const t = ac.currentTime + 0.01;
+      const dur = Math.min(1.6, Math.max(0.35, 10 * m.tau));
+
+      const master = ac.createGain();
+      master.gain.setValueAtTime(0.0001, t);
+      master.gain.exponentialRampToValueAtTime(0.16, t + 0.006);
+      master.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      master.connect(ac.destination);
+
+      const filt = ac.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.value = Math.min(6000, m.f * 9);
+      filt.connect(master);
+
+      [[1, 1], [2.02, 0.28], [3.01, 0.12]].forEach(([mult, vol]) => {
+        const o = ac.createOscillator();
+        o.type = mult === 1 ? 'triangle' : 'sine';
+        o.frequency.value = m.f * mult;
+        const g = ac.createGain();
+        g.gain.value = vol;
+        o.connect(g);
+        g.connect(filt);
+        o.start(t);
+        o.stop(t + dur + 0.06);
+      });
+    } catch (err) {
+      console.warn('Audio nicht verfügbar:', err);
+    }
+  }
+
+  /* ---------------- Zupfen ---------------- */
+  function pluck(withSound) {
+    state.ringing = true;
+    state.envT = 0;
+    state.phase = 0;
+    state.amp = 1;
+    state.flash = 1;
+    if (withSound && state.sound) playTone();
+  }
+
+  $('pluck').addEventListener('click', () => {
+    $('toast').classList.add('hide');
+    pluck(true);
+  });
+
+  $('sound').addEventListener('click', e => {
+    state.sound = !state.sound;
+    e.currentTarget.setAttribute('aria-pressed', String(state.sound));
+    e.currentTarget.textContent = state.sound ? '🔊 Ton an' : '🔇 Ton aus';
+    if (state.sound) pluck(true);
+  });
+
+  $('remember').addEventListener('click', () => {
+    if (memory) {
+      memory = null;
+      $('remember').textContent = 'Wert merken';
+    } else {
+      const m = model();
+      memory = { d: distCm(), f: m.f, T: m.T, tau: m.tau };
+      $('remember').textContent = 'Vergleich löschen';
+    }
+    updateUI();
+  });
+
+  distEl.addEventListener('input', e => {
+    setDist(parseFloat(e.target.value));
+    updateUI();
+  });
+  distEl.addEventListener('change', () => pluck(state.sound));
+
+  tensionEl.addEventListener('input', e => {
+    state.tension = parseFloat(e.target.value);
+    updateUI();
+  });
+  tensionEl.addEventListener('change', () => pluck(state.sound));
+
+  document.addEventListener('keydown', e => {
+    if (e.code !== 'Space') return;
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    if (/INPUT|BUTTON|TEXTAREA|SELECT/.test(tag)) return;
+    e.preventDefault();
+    $('toast').classList.add('hide');
+    pluck(true);
+  });
+
+  /* ---------------- Stifte ziehen ---------------- */
+  function toVirt(ev) {
+    const r = sceneCv.getBoundingClientRect();
+    const s = Math.min(r.width / 760, r.height / 440);
+    const ox = (r.width - 760 * s) / 2;
+    const oy = (r.height - 440 * s) / 2;
+    return [(ev.clientX - r.left - ox) / s, (ev.clientY - r.top - oy) / s];
+  }
+
+  function uFromPoint(p) {
+    const v = clamp((G.fl[1] - p[1]) / (G.fl[1] - G.bl[1]), -0.15, 1.15);
+    const x0 = G.fl[0] + (G.bl[0] - G.fl[0]) * v;
+    const x1 = G.fr[0] + (G.br[0] - G.fr[0]) * v;
+    return clamp((p[0] - x0) / (x1 - x0), 0.02, 0.98);
+  }
+
+  function stickDist(p, u) {
+    const a = facePt(u, -0.08);
+    const b = facePt(u, 1.08);
+    const vx = b[0] - a[0], vy = b[1] - a[1];
+    const tt = clamp(((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / (vx * vx + vy * vy), 0, 1);
+    return Math.hypot(p[0] - (a[0] + vx * tt), p[1] - (a[1] + vy * tt));
+  }
+
+  sceneCv.addEventListener('pointerdown', ev => {
+    ev.preventDefault();
+    const p = toVirt(ev);
+    const dL = stickDist(p, state.uL);
+    const dR = stickDist(p, state.uR);
+
+    $('toast').classList.add('hide');
+
+    if (Math.min(dL, dR) < 32) {
+      drag = dL <= dR ? 'L' : 'R';
+      sceneCv.setPointerCapture(ev.pointerId);
+      sceneCv.style.cursor = 'grabbing';
+    } else {
+      pluck(true);
+    }
+  });
+
+  sceneCv.addEventListener('pointermove', ev => {
+    const p = toVirt(ev);
+
+    if (drag) {
+      const u = uFromPoint(p);
+      const minSpan = D_MIN / CARTON_CM;
+      const maxSpan = D_MAX / CARTON_CM;
+      let uL = state.uL, uR = state.uR;
+
+      if (drag === 'L') uL = clamp(u, 0.04, uR - minSpan);
+      else uR = clamp(u, uL + minSpan, 0.96);
+
+      if (uR - uL > maxSpan) {
+        if (drag === 'L') uL = uR - maxSpan;
+        else uR = uL + maxSpan;
+      }
+      state.uL = uL;
+      state.uR = uR;
+      updateUI();
+    } else {
+      const near = Math.min(stickDist(p, state.uL), stickDist(p, state.uR)) < 32;
+      sceneCv.style.cursor = near ? 'grab' : 'pointer';
+    }
+  });
+
+  ['pointerup', 'pointercancel'].forEach(type => {
+    sceneCv.addEventListener(type, () => {
+      if (!drag) return;
+      drag = null;
+      sceneCv.style.cursor = 'grab';
+    });
+  });
+
+  /* ---------------- Animation ---------------- */
+  let last = performance.now();
+
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (state.ringing) {
+      const m = model();
+      state.envT += dt / SLOW;
+      state.phase += (2 * Math.PI * m.f * dt) / SLOW;
+      state.amp = Math.exp(-state.envT / m.tau);
+      state.wave = (state.wave + dt * 0.9) % 1;
+      if (state.amp < 0.02) {
+        state.ringing = false;
+        state.amp = 0;
+      }
+    } else {
+      state.amp = 0;
+    }
+
+    state.flash = Math.max(0, state.flash - dt * 2.2);
+
+    drawScene();
+    drawSection();
+    drawScope();
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------------- Start ---------------- */
+  setDist(12);
+  updateUI();
+  drawScene();
+  drawSection();
+  drawScope();
+  requestAnimationFrame(loop);
+
+  // kleiner, stummer Willkommens-Zupfer
+  setTimeout(() => { if (!state.ringing) pluck(false); }, 900);
+  setTimeout(() => $('toast').classList.add('hide'), 14000);
+})();
+</script>
+</body>
+</html>
