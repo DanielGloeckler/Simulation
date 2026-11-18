@@ -11,6 +11,7 @@ Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasi
 | Akustik | [Schallausbreitung](Akustik/Schallausbreitung.html) | 7/8 | Teilchenmodell, Verdichtung und Verdünnung |
 | Akustik | [Milchkarton-Gitarre](Akustik/Milchkarton-Gitarre.html) | 7/8 | Schwingungsdauer, Tonhöhe, Resonanzkörper |
 | Optik | [Optische Linsen](Optik/Linsen.html) | 7/8 | Strahlengang, Linsengleichung, reelle/virtuelle Bilder |
+| Optik | [Kurz- & Weitsichtigkeit](Optik/Kurz-Weitsichtigkeit.html) | 7/8 | Auge, Akkommodation, Brillengläser, Zerstreuungskreis |
 | Optik | [Brechung & optische Hebung](Optik/Brechung.html) | 7/8 | Brechungsgesetz, Wahrnehmung |
 | Optik | [Lochkamera](Optik/Lochkammera.html) | 7/8 | Bildentstehung ohne Linse |
 | Optik | [Mondphasen](Optik/Mondphasen.html) | 7/8 | Beleuchtung und Perspektive |
@@ -28,6 +29,7 @@ Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasi
 | Mechanik | [Bewegungsdiagramme](Mechanik/Bewegungsdiagramme.html) | 8/10 | s-t-, v-t-, a-t-Diagramm |
 | Mechanik | [Kreisbewegung](Mechanik/Kreisbewegung.html) | 10 | Zentripetalkraft, Trägheit |
 | Wärmelehre | [Treibhauseffekt](Wärmelehre/Treibhauseffekt.html) | 9 | Strahlungsbilanz, Gleichgewichtstemperatur |
+| Wärmelehre | [Teediffusion](Wärmelehre/Teediffusion.html) | 9 | Brownsche Bewegung, Temperatur und Diffusionsgeschwindigkeit |
 | Struktur der Materie | [Halbwertszeit](Struktur-der-Materie/Halbwertszeit.html) | 9 | Zufall, Exponentialkurve, Aktivität |
 | Quantenphysik | [Photoeffekt](Quantenphysik/Photoeffekt.html) | 11/13 | Einstein-Gleichung, Grenzfrequenz, Gegenspannung |
 | Quantenphysik | [Energieniveaus](Quantenphysik/Energieniveaus.html) | 11/13 | Bohr-Frequenzbedingung, Emission/Absorption |
@@ -39,7 +41,9 @@ Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasi
 - **Bewegungsdiagramme (Kl. 8/10):** Der Wechsel zwischen s-t-, v-t- und a-t-Diagramm sowie die Deutung von Steigung und Fläche bereiten große Schwierigkeiten. Hier laufen Auto, Kurven und Zeitcursor synchron.
 - **Kreisbewegung (Kl. 10):** Die Vorstellung einer nach außen wirkenden „Zentrifugalkraft“ ist hartnäckig. Die Simulation trennt Geschwindigkeit (tangential) und Zentripetalkraft (zum Zentrum) und zeigt beim Loslassen des Fadens die geradlinige Trägheitsbewegung.
 - **Linsen (Kl. 7/8):** Die Konstruktion mit drei ausgezeichneten Strahlen und insbesondere das virtuelle Bild bei g < f sind abstrakt. Der Gegenstand lässt sich verschieben, Bildweite und Abbildungsmaßstab werden live berechnet.
+- **Kurz- und Weitsichtigkeit (Kl. 7/8):** Dass der Brennpunkt vor oder hinter der Netzhaut liegt, lässt sich am Auge nicht sehen. Die Simulation macht Augenlänge, Akkommodation und Brillenstärke gleichzeitig veränderbar und zeigt den Zerstreuungskreis auf der Netzhaut sowie den daraus folgenden Seheindruck einer Sehtafel – inklusive der Frage, warum eine Brille den Brennpunkt genau auf die Netzhaut legt.
 - **Treibhauseffekt (Kl. 9):** Strahlungsbilanzen und die Rolle von Albedo und Treibhausgasen sind komplex. Das Ein-Schicht-Modell macht die Energieflüsse und die Gleichgewichtstemperatur nachvollziehbar – ausdrücklich als vereinfachtes Lehrbuchmodell.
+- **Teediffusion (Kl. 9):** Dass Tee in heißem Wasser schneller zieht, ist Alltagserfahrung – der Grund bleibt unsichtbar. Zwei Gläser laufen gleichzeitig: links kaltes, rechts heißes Wasser. Die Teeteilchen verteilen sich unterschiedlich schnell, das Diagramm zeigt den Anteil außerhalb des Beutels über der Zeit und macht so den Zusammenhang zwischen Temperatur und Diffusion messbar.
 - **Halbwertszeit (Kl. 9):** Der radioaktive Zerfall ist ein Zufallsprozess; die Halbwertszeit ist eine statistische Größe. Die Simulation verbindet das sichtbare Zerfallen einzelner Kerne mit der theoretischen Exponentialkurve.
 - **Kondensator (Kl. 11/13):** Die Exponentialfunktion beim Auf- und Entladen eines RC-Kreises ist formal anspruchsvoll und wird oft nur als Formel gelernt. Hier sind Lade- und Entladevorgang gleichzeitig als U(t)- und I(t)-Kurve sichtbar, τ = R·C lässt sich direkt verändern und die gespeicherte Ladung bzw. Energie wird mitgelesen.
 - **Lorentzkraft (Kl. 11/13):** Die Richtung der Kraft auf bewegte Ladungen und die Kreisbahn im Magnetfeld sind ohne räumliche Vorstellung kaum zugänglich. Die Simulation zeigt Elektron, Proton und α-Teilchen in derselben Feldkonfiguration, macht die Drei-Finger-Regel sichtbar und berechnet Radius und Umlaufdauer aus r = m·v/(q·B).
@@ -53,11 +57,13 @@ Interaktive, browsergestützte Simulationen für den Physikunterricht am Gymnasi
 Die Simulationen sind eigenständige HTML-Dateien ohne externe Bibliotheken und laufen offline im Browser.
 
 - **Linsen:** dünne Linse, achsennahe Strahlen, Linsengleichung `1/f = 1/g + 1/b`, Abbildungsmaßstab `m = -b/g`.
+- **Kurz-/Weitsichtigkeit:** reduziertes Auge mit einer brechenden Ebene (`n = 1,336`, entspannte Brechkraft `P = 55,7 dpt`, 24 mm Augenlänge = normalsichtig, Akkommodation bis 8,5 dpt), Brille als dünne Linse 15 mm vor dem Auge. Zerstreuungskreis `d = Pupille · |b − L| / b`; Sehschärfe nur als grobe Abschätzung, keine Aberrationen, keine Pupillenreaktion.
 - **Milchkarton-Gitarre:** gespannte Saite mit `f = (1/(2L))·√(F/μ)`, `T = 1/f`; die Kartonwand wird vereinfacht mit der Bandfrequenz angeregt, das Ausklingen über eine konstante Güte `τ = Q/(π·f)` mit `Q ≈ 24` modelliert. Kartonresonanz und Luftvolumen sind nicht berücksichtigt.
 - **Bewegungsdiagramme:** `s(t) = v₀t + ½at²`, `v(t) = v₀ + at`; Steigung und Flächen werden direkt am Graphen gedeutet.
 - **Kreisbewegung:** `v = ωr`, `a_z = v²/r`, `F_z = m·v²/r`; nach dem Loslassen bewegt sich der Körper geradlinig mit konstanter Geschwindigkeit.
 - **Spannung/Potenzial:** ideale Batterie, ideale Leitungen, `I = U/R`, `P = U·I`; das Potenzial ist als Höhenprofil dargestellt.
 - **Treibhauseffekt:** global gemitteltes Ein-Schicht-Atmosphärenmodell mit `σT_s⁴(1−ε/2) = (1−α)S/4`; keine Klimaprognose, keine Rückkopplungen.
+- **Teediffusion:** Brownsche Bewegung als gedämpfter Zufallsprozess (Ornstein-Uhlenbeck), Diffusionskonstante `D ∝ T/η(T)` nach Stokes-Einstein mit der Andrade-Gleichung für die Viskosität von Wasser; `D(75 °C)/D(15 °C) ≈ 3,7`. Der Beutel ist porös und nur Quelle, Konvektion und Strömungen sind nicht modelliert.
 - **Halbwertszeit:** `N(t) = N₀·2^(−t/T½)`, `A = λN` mit `λ = ln2/T½`; der Zerfall wird für jeden Kern stochastisch simuliert.
 - **Kondensator:** `U(t) = U₀·(1 − e^(−t/τ))` beim Laden, `U(t) = U₀·e^(−t/τ)` beim Entladen, `I(t) = −C·dU/dt`, `τ = R·C`, `W = ½CU²`; Bauteile ideal, Innenwiderstand der Quelle vernachlässigt.
 - **Lorentzkraft:** `F = q·v×B`, `r = m·v/(q·B)`, `T = 2πm/(qB)`; nichtrelativistisch, homogenes Feld senkrecht zur Bewegungsrichtung, keine Energieänderung durch das Magnetfeld.

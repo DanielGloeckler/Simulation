@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kurz- und Weitsichtigkeit – das Auge als optisches System (Simulation)</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1100px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1100px;margin:0 auto;display:grid;gap:18px}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;aspect-ratio:1100/540;display:block;border-radius:12px;background:#0a1524;touch-action:none}
+  #cv{cursor:crosshair}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:220px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:100px;margin-top:2px;accent-color:var(--accent)}
+  .controls label input[type=range]:disabled{opacity:.35}
+  .controls label.check{flex:0 1 auto;min-width:0;gap:8px;cursor:pointer;color:var(--text);font-size:.85rem}
+  .controls label.check input{accent-color:var(--accent);width:16px;height:16px}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:62px;text-align:right}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 15px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.86rem;font-family:inherit;
+    transition:background .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.on{background:rgba(255,213,79,.18);border-color:rgba(255,213,79,.55);color:var(--accent2)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.warm{color:var(--accent2)}
+  .readout .v.bad{color:var(--warm)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.55}
+  .hint b{color:var(--text)}
+  .split{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:22px;align-items:start}
+  .view h2,.explain h2{margin:0 0 10px;font-size:1rem;color:var(--accent);letter-spacing:.02em}
+  #chart{border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.35);aspect-ratio:640/400}
+  .small{margin:10px 0 0;color:var(--muted);font-size:.78rem;line-height:1.5}
+  .explain p{margin:0 0 12px;font-size:.9rem;line-height:1.65;color:#c8d6e8}
+  .explain p b{color:var(--text)}
+  .key{margin:0;padding-left:18px;color:var(--muted);font-size:.84rem;line-height:1.6}
+  .key b{color:var(--text)}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .badge.ok{background:rgba(126,231,135,.15);color:var(--good);border:1px solid rgba(126,231,135,.4)}
+  .badge.bad{background:rgba(255,138,101,.15);color:var(--warm);border:1px solid rgba(255,138,101,.4)}
+  @media (max-width:760px){
+    .split{grid-template-columns:1fr}
+    .controls label{min-width:100%}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kurz- und Weitsichtigkeit – <span>das Auge als optisches System</span></h1>
+  <p class="subtitle">Akkommodation · Brillengläser · Zerstreuungskreis auf der Netzhaut</p>
+</header>
+
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Schematischer Strahlengang durch ein Auge mit Gegenstand und Brille"></canvas>
+
+    <div class="controls">
+      <label>Gegenstandsweite g
+        <input id="g" type="range" min="0" max="1000" step="1" value="718">
+        <output id="gv">2,0 m</output>
+      </label>
+      <label>Augenlänge (Netzhautabstand)
+        <input id="L" type="range" min="22" max="26" step="0.05" value="24">
+        <output id="Lv">24,0 mm</output>
+      </label>
+      <label>Pupillendurchmesser
+        <input id="P" type="range" min="2" max="8" step="0.1" value="4">
+        <output id="Pv">4,0 mm</output>
+      </label>
+    </div>
+
+    <div class="controls">
+      <label>Akkommodation A
+        <input id="A" type="range" min="0" max="8.5" step="0.1" value="0" disabled>
+        <output id="Av">0,0 dpt</output>
+      </label>
+      <label class="check"><input id="auto" type="checkbox" checked> Auge stellt automatisch scharf</label>
+    </div>
+
+    <div class="controls">
+      <button id="glasses">Brille: aus</button>
+      <label>Brillenstärke D
+        <input id="D" type="range" min="-8" max="8" step="0.25" value="0" disabled>
+        <output id="Dv">0,0 dpt</output>
+      </label>
+    </div>
+
+    <div class="controls">
+      <button data-preset="normal">Normalsichtig</button>
+      <button data-preset="myopic">Kurzsichtig</button>
+      <button data-preset="hyperopic">Weitsichtig</button>
+      <button id="fix">Brille automatisch anpassen</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Fokuslage</div><div class="v" id="rFocus">–</div></div>
+      <div><div class="k">Zerstreuungskreis</div><div class="v" id="rBlur">–</div></div>
+      <div><div class="k">Akkommodation</div><div class="v" id="rA">–</div></div>
+      <div><div class="k">Fernpunkt</div><div class="v" id="rFar">–</div></div>
+      <div><div class="k">Nahpunkt</div><div class="v" id="rNear">–</div></div>
+      <div><div class="k">Sehschärfe (grob)</div><div class="v warm" id="rVisus">–</div></div>
+    </div>
+  </section>
+
+  <section class="card split">
+    <div class="view">
+      <h2>Seheindruck</h2>
+      <canvas id="chart" width="640" height="400" aria-label="Sehtafel mit E-Zeichen, unscharf je nach Zerstreuungskreis"></canvas>
+      <p class="small">Sehtafel in 5 m Entfernung. Der Zerstreuungskreis auf der Netzhaut verwischt zuerst die kleinen Zeichen – genau so entsteht der Eindruck „unscharf“.</p>
+    </div>
+    <div class="explain">
+      <h2>Was passiert?</h2>
+      <p id="explainText">–</p>
+      <ul class="key">
+        <li><b>Normalsichtig:</b> Das entspannte Auge bündelt paralleles Licht genau auf der Netzhaut.</li>
+        <li><b>Kurzsichtig:</b> Das Auge ist zu lang (oder zu stark) – der Brennpunkt liegt <i>vor</i> der Netzhaut. Nur nahe Gegenstände werden scharf.</li>
+        <li><b>Weitsichtig:</b> Das Auge ist zu kurz (oder zu schwach) – der Brennpunkt läge <i>hinter</i> der Netzhaut. Das Auge muss schon für die Ferne akkommodieren.</li>
+        <li><b>Brille:</b> Zerstreuungslinsen (negativ) schieben den Brennpunkt bei Kurzsichtigkeit nach hinten, Sammellinsen (positiv) bei Weitsichtigkeit nach vorn.</li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="hint" style="max-width:1100px;margin:0 auto">
+    <b>Modell:</b> reduziertes Auge mit einer brechenden Ebene (Brechkraft im entspannten Zustand 55,7 dpt,
+    Brechungsindex 1,336, Augenlänge 24 mm = normalsichtig), dünne Linse als Brille 15 mm vor dem Auge,
+    achsennahe Strahlen. Die Zerstreuungskreise folgen aus der Lage des Brennpunkts zur Netzhaut:
+    <i>d</i> = Pupille · |b − L| / b. Abstände und Bildgrößen sind schematisch, nicht maßstäblich;
+    die Sehschärfe ist nur eine grobe Abschätzung aus dem Zerstreuungskreis.
+  </p>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Konstanten ----------
+  const W = 1100, H = 540, AXIS = 278;
+  const PX_MM = 9;              // Pixel pro mm im Auge
+  const LENS_X = 620;           // Hauptebene des Auges
+  const X_GL = 518;             // Brillenebene (schematisch)
+  const N_EYE = 1.336;          // Brechungsindex im Auge
+  const P_REST = 55.667;        // Brechkraft des entspannten Auges (dpt)
+  const A_MAX = 8.5;            // maximale Akkommodation (dpt)
+  const D_VERTEX = 0.015;       // Hornhautabstand der Brille (m)
+  const EYE_RY = 98;            // halbe Augenhöhe (px)
+
+  // ---------- DOM ----------
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const chart = document.getElementById('chart');
+  const cctx = chart.getContext('2d');
+
+  const gEl = document.getElementById('g');
+  const LEl = document.getElementById('L');
+  const pEl = document.getElementById('P');
+  const aEl = document.getElementById('A');
+  const dEl = document.getElementById('D');
+  const autoEl = document.getElementById('auto');
+
+  const gv = document.getElementById('gv');
+  const Lv = document.getElementById('Lv');
+  const Pv = document.getElementById('Pv');
+  const Av = document.getElementById('Av');
+  const Dv = document.getElementById('Dv');
+
+  const rFocus = document.getElementById('rFocus');
+  const rBlur = document.getElementById('rBlur');
+  const rA = document.getElementById('rA');
+  const rFar = document.getElementById('rFar');
+  const rNear = document.getElementById('rNear');
+  const rVisus = document.getElementById('rVisus');
+  const explainText = document.getElementById('explainText');
+
+  const glassesBtn = document.getElementById('glasses');
+  const fixBtn = document.getElementById('fix');
+
+  let glassesOn = false;
+
+  // ---------- Hilfen ----------
+  const de = (v, d = 1) => v.toLocaleString('de-DE', {minimumFractionDigits: d, maximumFractionDigits: d});
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+  // Gegenstandsweite logarithmisch: 0,15 m … 6 m
+  const gFromSlider = v => 0.15 * Math.pow(40, v / 1000);
+  const sliderFromG = g => 1000 * Math.log(g / 0.15) / Math.log(40);
+
+  // gestauchte Darstellung der Gegenstandsweite
+  const offset = d => 45 + 545 * (1 - Math.exp(-Math.max(d, 0) / 1.2));
+  const xAt = d => LENS_X - offset(d);
+
+  function state() {
+    const g = gFromSlider(parseFloat(gEl.value));
+    const L = parseFloat(LEl.value);
+    const pupil = parseFloat(pEl.value);
+    const auto = autoEl.checked;
+    const A_manual = parseFloat(aEl.value);
+    const D = parseFloat(dEl.value);
+    return {g, L, pupil, auto, A_manual, D, glassesOn};
+  }
+
+  // ---------- Optik ----------
+  function optics(s) {
+    const Lm = s.L / 1000;
+    const nOverL = N_EYE / Lm;
+
+    let U;                    // Vergenz am Auge (negativ = divergent)
+    let ug = 0, ugp = 0, lG = 0; // Zwischenbild der Brille
+    if (s.glassesOn) {
+      const dist = Math.max(s.g - D_VERTEX, 0.01);
+      ug = -1 / dist;                 // am Brillenglas
+      ugp = ug + s.D;                 // hinter dem Brillenglas
+      lG = 1 / ugp;                   // Bildweite (m, + in Richtung Auge)
+      U = ugp / (1 - D_VERTEX * ugp); // am Auge
+    } else {
+      U = -1 / s.g;
+    }
+
+    const A_need = nOverL - P_REST - U;
+    const A = s.auto ? clamp(A_need, 0, A_MAX) : clamp(s.A_manual, 0, A_MAX);
+    const Vout = U + P_REST + A;
+    const b_mm = (N_EYE / Vout) * 1000;
+    const focusOffset = b_mm - s.L;           // > 0: hinter der Netzhaut
+    const blur_mm = s.pupil * Math.abs(b_mm - s.L) / b_mm;
+    const blurArc = blur_mm / s.L * 3437.75;  // Bogenminuten
+    const blurEff = Math.max(0, blurArc - 2.2);
+    const visus = blurEff < 0.4 ? 1 : clamp(1 / blurEff, 0.03, 1);
+
+    const Ufar = nOverL - P_REST;
+    const Unear = nOverL - P_REST - A_MAX;
+
+    return {
+      ...s, U, ug, ugp, lG, A, A_need, Vout, b_mm, focusOffset,
+      blur_mm, blurArc, blurEff, visus, Ufar, Unear,
+      gFar: objDistance(Ufar, s.glassesOn, s.D),
+      gNear: objDistance(Unear, s.glassesOn, s.D),
+      xRet: LENS_X + s.L * PX_MM,
+      xImg: LENS_X + clamp(b_mm, 1, 500) * PX_MM
+    };
+  }
+
+  // Welcher Gegenstandsabstand (vom Auge) gehört zu dieser Vergenz am Auge?
+  function objDistance(Ueye, gOn, D) {
+    let Uobj;
+    if (gOn) {
+      const Up = Ueye / (1 + D_VERTEX * Ueye);  // zurück durch die Brille
+      Uobj = Up - D;
+      if (Math.abs(Uobj) < 0.15) return Infinity; // praktisch im Unendlichen
+      return D_VERTEX - 1 / Uobj;
+    }
+    if (Math.abs(Ueye) < 1e-6) return Infinity;
+    return -1 / Ueye;
+  }
+
+  function autoCorrection(s) {
+    const Ufar = N_EYE / (s.L / 1000) - P_REST;
+    const D = Ufar / (1 + D_VERTEX * Ufar);
+    dEl.value = clamp(D, -8, 8).toFixed(2);
+  }
+
+  // ---------- Canvas ----------
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+
+  function background() {
+    ctx.clearRect(0, 0, W, H);
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0d1930');
+    grd.addColorStop(1, '#070e1a');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(79,195,247,0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y <= H; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    ctx.restore();
+
+    // optische Achse
+    ctx.save();
+    ctx.strokeStyle = 'rgba(138,160,189,0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([7, 6]);
+    ctx.beginPath();
+    ctx.moveTo(26, AXIS);
+    ctx.lineTo(LENS_X - 24, AXIS);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawEye(o) {
+    const front = LENS_X - 45;
+    const back = o.xRet + 9;
+    const cx = (front + back) / 2;
+    const rx = (back - front) / 2;
+
+    // Glaskörper
+    ctx.save();
+    const fill = ctx.createRadialGradient(cx, AXIS - 20, 10, cx, AXIS, rx * 1.15);
+    fill.addColorStop(0, 'rgba(43,64,94,0.95)');
+    fill.addColorStop(1, 'rgba(15,26,44,0.98)');
+    ctx.beginPath();
+    ctx.ellipse(cx, AXIS, rx, EYE_RY, 0, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    // Aderhaut
+    ctx.beginPath();
+    ctx.ellipse(cx, AXIS, rx - 6, EYE_RY - 6, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(160,50,50,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Lederhaut
+    ctx.beginPath();
+    ctx.ellipse(cx, AXIS, rx, EYE_RY, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = '#dfe7f1';
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx, AXIS, rx - 4, EYE_RY - 4, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(190,205,225,0.28)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Sehnerv (liegt hinter der Netzhaut)
+    const nerveX = cx + (rx - 12) * Math.cos(0.42);
+    const nerveY = AXIS + (EYE_RY - 12) * Math.sin(0.42);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(nerveX, nerveY);
+    ctx.quadraticCurveTo(back + 26, AXIS + 52, back + 62, AXIS + 62);
+    ctx.strokeStyle = '#b03a2e';
+    ctx.lineWidth = 17;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.strokeStyle = '#e05a4a';
+    ctx.lineWidth = 10;
+    ctx.stroke();
+    ctx.restore();
+
+    // Netzhaut (hinterer Bogen)
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, AXIS, rx - 9, EYE_RY - 9, 0, -1.52, 1.52);
+    ctx.strokeStyle = '#ffd54f';
+    ctx.lineWidth = 6;
+    ctx.shadowColor = 'rgba(255,213,79,0.55)';
+    ctx.shadowBlur = 14;
+    ctx.stroke();
+    ctx.restore();
+
+    // Hornhaut
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(front + 8, AXIS, 27, 47, 0, Math.PI * 0.55, Math.PI * 1.45);
+    const cg = ctx.createLinearGradient(front - 20, 0, front + 26, 0);
+    cg.addColorStop(0, 'rgba(150,220,255,0.06)');
+    cg.addColorStop(0.7, 'rgba(150,220,255,0.20)');
+    cg.addColorStop(1, 'rgba(150,220,255,0.06)');
+    ctx.fillStyle = cg;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(180,235,255,0.85)';
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+    ctx.restore();
+
+    // Iris
+    const pupilHalf = o.pupil * PX_MM / 2;
+    ctx.save();
+    for (const sgn of [-1, 1]) {
+      const y1 = AXIS + sgn * (pupilHalf + 2);
+      const y2 = AXIS + sgn * 52;
+      const ig = ctx.createLinearGradient(0, y1, 0, y2);
+      ig.addColorStop(0, '#7c9ec2');
+      ig.addColorStop(1, '#3c5a7c');
+      ctx.strokeStyle = ig;
+      ctx.lineWidth = 11;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(LENS_X - 34, y1);
+      ctx.lineTo(LENS_X - 30, y2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Linse (dicker bei Akkommodation)
+    const lensH = 34 + o.A * 3.5;
+    const lensW = 11 + o.A * 0.8;
+    ctx.save();
+    const lg = ctx.createLinearGradient(LENS_X - lensW, 0, LENS_X + lensW, 0);
+    lg.addColorStop(0, 'rgba(150,95,220,0.75)');
+    lg.addColorStop(0.5, 'rgba(196,150,245,0.95)');
+    lg.addColorStop(1, 'rgba(150,95,220,0.75)');
+    ctx.beginPath();
+    ctx.ellipse(LENS_X, AXIS, lensW, lensH, 0, 0, Math.PI * 2);
+    ctx.fillStyle = lg;
+    ctx.shadowColor = 'rgba(180,120,255,0.45)';
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(225,200,255,0.8)';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.restore();
+
+    // Beschriftung
+    ctx.save();
+    ctx.font = '600 11px Segoe UI, sans-serif';
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Hornhaut', front - 6, AXIS - 116);
+    ctx.fillText('Linse', LENS_X, AXIS - 108);
+    ctx.fillText('Netzhaut', o.xRet - 6, AXIS + 120);
+    ctx.textAlign = 'left';
+    ctx.fillText('Sehnerv', back + 40, AXIS + 108);
+    ctx.restore();
+  }
+
+  function drawGlasses(D) {
+    ctx.save();
+    ctx.beginPath();
+    const top = AXIS - 62, bot = AXIS + 62, hw = D < 0 ? 10 : 9;
+    if (D < -0.02) {
+      // Zerstreuungslinse: in der Mitte dünner
+      ctx.moveTo(X_GL - hw, top);
+      ctx.lineTo(X_GL + hw, top);
+      ctx.quadraticCurveTo(X_GL + 3, AXIS, X_GL + hw, bot);
+      ctx.lineTo(X_GL - hw, bot);
+      ctx.quadraticCurveTo(X_GL - 3, AXIS, X_GL - hw, top);
+      ctx.closePath();
+    } else if (D > 0.02) {
+      // Sammellinse: in der Mitte dicker
+      ctx.moveTo(X_GL, top);
+      ctx.quadraticCurveTo(X_GL + 15, AXIS, X_GL, bot);
+      ctx.quadraticCurveTo(X_GL - 15, AXIS, X_GL, top);
+      ctx.closePath();
+    } else {
+      ctx.rect(X_GL - 3, top, 6, bot - top);
+    }
+    const g = ctx.createLinearGradient(X_GL - 9, 0, X_GL + 9, 0);
+    g.addColorStop(0, 'rgba(120,200,255,0.06)');
+    g.addColorStop(0.5, 'rgba(140,215,255,0.26)');
+    g.addColorStop(1, 'rgba(120,200,255,0.06)');
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(160,225,255,0.9)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(160,225,255,0.95)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Brille', X_GL, AXIS - 78);
+    ctx.fillStyle = 'rgba(255,213,79,0.95)';
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    const sign = D > 0 ? '+' : '';
+    ctx.fillText(sign + de(D, 2) + ' dpt', X_GL, AXIS + 86);
+    ctx.restore();
+  }
+
+  function drawObject(x) {
+    // Kerze
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,180,60,0.45)';
+    ctx.shadowBlur = 14;
+    const body = ctx.createLinearGradient(x - 8, 0, x + 8, 0);
+    body.addColorStop(0, '#c9a86a');
+    body.addColorStop(0.4, '#f6e6c2');
+    body.addColorStop(1, '#c9a86a');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x - 7, AXIS - 6, 14, 64, 3) : ctx.rect(x - 7, AXIS - 6, 14, 64);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Docht
+    ctx.strokeStyle = '#3a2a1a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, AXIS - 6);
+    ctx.lineTo(x, AXIS - 14);
+    ctx.stroke();
+
+    // Flamme
+    const fg = ctx.createRadialGradient(x, AXIS - 34, 2, x, AXIS - 34, 26);
+    fg.addColorStop(0, '#fffbe8');
+    fg.addColorStop(0.35, '#ffe066');
+    fg.addColorStop(0.7, 'rgba(255,150,40,0.9)');
+    fg.addColorStop(1, 'rgba(255,90,0,0)');
+    ctx.fillStyle = fg;
+    ctx.beginPath();
+    ctx.moveTo(x, AXIS - 60);
+    ctx.bezierCurveTo(x + 13, AXIS - 40, x + 9, AXIS - 18, x, AXIS - 14);
+    ctx.bezierCurveTo(x - 9, AXIS - 18, x - 13, AXIS - 40, x, AXIS - 60);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.font = '600 12px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Gegenstand', x, AXIS + 82);
+    ctx.restore();
+  }
+
+  function rayLine(pts, color, width, dash) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    if (dash) ctx.setLineDash(dash);
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 7;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Schnittpunkt eines Strahls mit der (elliptisch gekrümmten) Netzhaut
+  function retinaHit(o, yl, yImg) {
+    const front = LENS_X - 45, back = o.xRet + 9;
+    const cx = (front + back) / 2;
+    const a = Math.max(20, (back - front) / 2 - 9);
+    const b = EYE_RY - 9;
+    const dx = o.xImg - LENS_X, dy = yImg - yl;
+    const px = LENS_X - cx, py = yl - AXIS;
+    const A = dx * dx / (a * a) + dy * dy / (b * b);
+    const B = 2 * (px * dx / (a * a) + py * dy / (b * b));
+    const C = px * px / (a * a) + py * py / (b * b) - 1;
+    if (A < 1e-9) return {x: LENS_X + dx, y: yImg};
+    const disc = B * B - 4 * A * C;
+    if (disc <= 0) {
+      const t = (o.xRet - LENS_X) / Math.max(dx, 1e-6);
+      return {x: o.xRet, y: yl + t * dy};
+    }
+    const t = (-B + Math.sqrt(disc)) / (2 * A);
+    return {x: LENS_X + t * dx, y: yl + t * dy};
+  }
+
+  function drawRays(o, s, xObj) {
+    const pupilHalf = o.pupil * PX_MM / 2;
+    const top = {x: xObj, y: AXIS - 58};    // Flammenspitze
+    const bot = {x: xObj, y: AXIS + 58};    // Kerzenfuß
+
+    // Zwischenbild der Brille (nur zur Konstruktion)
+    let ig = null;
+    if (s.glassesOn) {
+      const xIg = LENS_X + o.lG * 1000 * PX_MM;
+      ig = {x: xIg};
+    }
+
+    const bundles = [
+      {p: top, color: 'rgba(255,235,90,0.92)'},
+      {p: bot, color: 'rgba(255,170,80,0.9)'}
+    ];
+
+    for (const bundle of bundles) {
+      const oy = bundle.p.y;
+      const yIg = s.glassesOn
+        ? AXIS + (oy - AXIS) * (o.ug / o.ugp)
+        : oy;
+
+      for (const sgn of [-1, 1]) {
+        const yl = AXIS + sgn * pupilHalf;
+
+        // Eintrittspunkt in die Brille
+        let gx = bundle.p.x, gy = oy;
+        if (s.glassesOn && Math.abs(ig.x - LENS_X) > 1) {
+          const t = (ig.x - X_GL) / (ig.x - LENS_X);
+          gy = yIg + (yl - yIg) * t;
+          gx = X_GL;
+        }
+
+        // Bildpunkt des Auges
+        const gDisp = Math.max(LENS_X - xObj, 30);
+        const yImg = AXIS - (oy - AXIS) * (o.xImg - LENS_X) / gDisp;
+
+        // Auftreffpunkt auf der gekrümmten Netzhaut
+        const hit = retinaHit(o, yl, yImg);
+
+        const pts = [{x: bundle.p.x, y: oy}];
+        if (s.glassesOn) pts.push({x: gx, y: gy});
+        pts.push({x: LENS_X, y: yl});
+        pts.push(hit);
+        rayLine(pts, bundle.color, 1.7);
+
+        // Verlängerung zum Brennpunkt
+        if (o.xImg > o.xRet + 2) {
+          rayLine([hit, {x: o.xImg, y: yImg}],
+                  'rgba(255,150,120,0.35)', 1.2, [4, 5]);
+        }
+      }
+
+      // Zerstreuungskreis auf der Netzhaut
+      const gDisp = Math.max(LENS_X - xObj, 30);
+      const yImg = AXIS - (oy - AXIS) * (o.xImg - LENS_X) / gDisp;
+      const h1 = retinaHit(o, AXIS + pupilHalf, yImg);
+      const h2 = retinaHit(o, AXIS - pupilHalf, yImg);
+      const width = Math.max(2, Math.hypot(h1.x - h2.x, h1.y - h2.y));
+      ctx.save();
+      ctx.strokeStyle = bundle.color.replace(/0\.9\d*\)/, '0.55)');
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(255,210,90,0.8)';
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.moveTo(h1.x, h1.y);
+      ctx.lineTo(h2.x, h2.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Brennpunkt markieren
+    const gDisp = Math.max(LENS_X - xObj, 30);
+    const yImgTop = AXIS - (top.y - AXIS) * (o.xImg - LENS_X) / gDisp;
+    if (o.xImg > LENS_X + 6 && o.xImg < W - 20 && Math.abs(yImgTop - AXIS) < EYE_RY + 8) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.shadowColor = 'rgba(255,230,120,0.95)';
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(o.xImg, yImgTop, 3.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Maßstabsbalken
+    ctx.save();
+    ctx.strokeStyle = 'rgba(138,160,189,0.45)';
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.lineWidth = 1;
+    ctx.font = '11px Segoe UI, sans-serif';
+    const yb = H - 34;
+    ctx.beginPath();
+    ctx.moveTo(xObj, yb); ctx.lineTo(LENS_X - 18, yb);
+    ctx.moveTo(xObj, yb - 5); ctx.lineTo(xObj, yb + 5);
+    ctx.moveTo(LENS_X - 18, yb - 5); ctx.lineTo(LENS_X - 18, yb + 5);
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillText('g = ' + de(s.g, 2) + ' m', (xObj + LENS_X - 18) / 2, yb - 10);
+
+    ctx.beginPath();
+    ctx.moveTo(LENS_X + 26, yb); ctx.lineTo(o.xRet, yb);
+    ctx.moveTo(LENS_X + 26, yb - 5); ctx.lineTo(LENS_X + 26, yb + 5);
+    ctx.moveTo(o.xRet, yb - 5); ctx.lineTo(o.xRet, yb + 5);
+    ctx.stroke();
+    ctx.fillText('Augenlänge ' + de(s.L, 1) + ' mm', (LENS_X + 26 + o.xRet) / 2, yb - 10);
+    ctx.restore();
+  }
+
+  function drawStatus(o) {
+    ctx.save();
+    ctx.font = '600 13px Segoe UI, sans-serif';
+    ctx.textAlign = 'right';
+    const sharp = o.blurArc - 2.2 < 0.4;
+    ctx.fillStyle = sharp ? 'rgba(126,231,135,0.95)' : 'rgba(255,138,101,0.95)';
+    ctx.fillText(sharp ? 'scharf auf der Netzhaut' : 'unscharf – Zerstreuungskreis ' + de(o.blur_mm, 2) + ' mm', W - 26, 34);
+    ctx.restore();
+  }
+
+  // ---------- Sehtafel ----------
+  function drawE(g, x, y, size, rot) {
+    g.save();
+    g.translate(x, y);
+    g.rotate(rot);
+    const t = size * 0.2;
+    g.fillRect(-size * 0.5, -size * 0.5, t, size);
+    g.fillRect(-size * 0.5, -size * 0.5, size, t);
+    g.fillRect(-size * 0.5, -t * 0.5, size * 0.82, t);
+    g.fillRect(-size * 0.5, size * 0.5 - t, size, t);
+    g.restore();
+  }
+
+  function drawChart(o) {
+    const w = 640, h = 400;
+    if (chart.width !== w) { chart.width = w; chart.height = h; }
+
+    cctx.clearRect(0, 0, w, h);
+    const bg = cctx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, '#faf7ee');
+    bg.addColorStop(1, '#ece5d3');
+    cctx.fillStyle = bg;
+    cctx.fillRect(0, 0, w, h);
+
+    cctx.fillStyle = 'rgba(40,55,70,0.55)';
+    cctx.font = '600 16px Segoe UI, sans-serif';
+    cctx.textAlign = 'left';
+    cctx.fillText('Sehtafel · 5 m', 26, 30);
+
+    const rows = [
+      {size: 62, y: 86,  v: '0,1'},
+      {size: 44, y: 155, v: '0,2'},
+      {size: 32, y: 210, v: '0,4'},
+      {size: 23, y: 252, v: '0,6'},
+      {size: 17, y: 286, v: '0,8'},
+      {size: 12, y: 312, v: '1,0'}
+    ];
+
+    const blurPx = clamp(o.blurEff * 1.15, 0, 55);
+
+    cctx.save();
+    if (blurPx > 0.2) cctx.filter = 'blur(' + blurPx.toFixed(2) + 'px)';
+    cctx.fillStyle = '#16202b';
+
+    rows.forEach((row, r) => {
+      const n = 5;
+      const spacing = 118;
+      const x0 = 320 - (n - 1) * spacing / 2;
+      for (let i = 0; i < n; i++) {
+        const rot = ((i * 3 + r * 5) % 4) * Math.PI / 2;
+        drawE(cctx, x0 + i * spacing, row.y, row.size, rot);
+      }
+    });
+    cctx.restore();
+
+    cctx.fillStyle = 'rgba(40,55,70,0.5)';
+    cctx.font = '600 14px Segoe UI, sans-serif';
+    cctx.textAlign = 'right';
+    rows.forEach(row => cctx.fillText(row.v, 74, row.y + row.size * 0.18));
+  }
+
+  // ---------- Anzeige ----------
+  function fmtDistance(d) {
+    if (!isFinite(d)) return '∞';
+    if (d < 0) return 'hinter dem Auge';
+    if (d > 20) return '∞';
+    return de(d, 2) + ' m';
+  }
+
+  function updateReadout(o) {
+    gv.textContent = de(o.g, 2) + ' m';
+    Lv.textContent = de(o.L, 1) + ' mm';
+    Pv.textContent = de(o.pupil, 1) + ' mm';
+    if (o.auto) aEl.value = o.A;
+    Av.textContent = de(o.A, 1) + ' dpt' + (o.auto ? ' (auto)' : '');
+    Dv.textContent = (o.D > 0 ? '+' : '') + de(o.D, 2) + ' dpt';
+
+    if (Math.abs(o.focusOffset) < 0.05) {
+      rFocus.textContent = 'auf der Netzhaut';
+      rFocus.className = 'v';
+    } else {
+      rFocus.textContent = de(Math.abs(o.focusOffset), 2) + ' mm ' +
+        (o.focusOffset > 0 ? 'hinter' : 'vor') + ' der Netzhaut';
+      rFocus.className = 'v ' + (Math.abs(o.focusOffset) < 0.15 ? '' : 'bad');
+    }
+
+    rBlur.textContent = de(o.blur_mm, 2) + ' mm';
+    rBlur.className = 'v ' + (o.blurArc - 2.2 < 0.4 ? '' : 'bad');
+
+    rA.textContent = de(o.A, 1) + ' dpt';
+    rFar.textContent = fmtDistance(o.gFar);
+    rNear.textContent = fmtDistance(o.gNear);
+
+    const v = o.visus;
+    rVisus.textContent = '≈ ' + de(v, 2);
+    rVisus.className = 'v ' + (v > 0.8 ? '' : v > 0.3 ? 'warm' : 'bad');
+
+    const cond = o.Ufar < -0.15 ? 'myop' : o.Ufar > 0.15 ? 'hyper' : 'normal';
+    const sharp = o.blurArc - 2.2 < 0.4;
+    let txt = '';
+
+    if (cond === 'normal') {
+      txt = 'Das entspannte Auge bündelt paralleles Licht genau auf der Netzhaut – es ist <b>normalsichtig</b>. ';
+    } else if (cond === 'myop') {
+      txt = 'Das entspannte Auge ist um <b>' + de(Math.abs(o.Ufar), 1) +
+        ' dpt</b> zu stark – paralleles Licht würde vor der Netzhaut bündeln. ';
+    } else {
+      txt = 'Das entspannte Auge ist um <b>' + de(Math.abs(o.Ufar), 1) +
+        ' dpt</b> zu schwach – paralleles Licht würde erst hinter der Netzhaut bündeln. ';
+    }
+
+    if (sharp) {
+      txt += 'Bei g = ' + de(o.g, 2) + ' m liegt der Brennpunkt auf der Netzhaut – das Bild ist scharf. ';
+    } else {
+      txt += 'Bei g = ' + de(o.g, 2) + ' m liegt der Brennpunkt ' +
+        de(Math.abs(o.focusOffset), 1) + ' mm ' + (o.focusOffset > 0 ? 'hinter' : 'vor') +
+        ' der Netzhaut; der Zerstreuungskreis ist ' + de(o.blur_mm, 2) + ' mm groß. ';
+    }
+
+    if (o.A > 0.2) {
+      txt += 'Das Auge akkommodiert mit ' + de(o.A, 1) + ' dpt. ';
+    } else if (cond === 'hyper' && sharp) {
+      txt += 'Für diese Entfernung reicht die Akkommodation noch aus. ';
+    }
+
+    if (o.glassesOn) {
+      txt += 'Die Brille (' + (o.D > 0 ? '+' : '') + de(o.D, 2) + ' dpt) verschiebt den Brennpunkt ' +
+        (sharp ? 'genau auf die Netzhaut.' : 'in Richtung Netzhaut, reicht aber noch nicht ganz.');
+    }
+
+    explainText.innerHTML = txt;
+  }
+
+  function update() {
+    const s = state();
+    dEl.disabled = !s.glassesOn;
+    aEl.disabled = s.auto;
+    glassesBtn.classList.toggle('on', s.glassesOn);
+    glassesBtn.textContent = s.glassesOn ? 'Brille: an' : 'Brille: aus';
+
+    const o = optics(s);
+    background();
+    drawEye(o);
+    if (s.glassesOn) drawGlasses(s.D);
+    const xObj = xAt(s.g);
+    drawObject(xObj);
+    drawRays(o, s, xObj);
+    drawStatus(o);
+    updateReadout(o);
+    drawChart(o);
+  }
+
+  // ---------- Interaktion ----------
+  document.querySelectorAll('input[type=range]').forEach(el => {
+    el.addEventListener('input', update);
+  });
+  autoEl.addEventListener('change', update);
+
+  glassesBtn.addEventListener('click', () => {
+    glassesOn = !glassesOn;
+    update();
+  });
+
+  fixBtn.addEventListener('click', () => {
+    const s = state();
+    autoCorrection(s);
+    glassesOn = true;
+    update();
+  });
+
+  document.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = btn.dataset.preset;
+      if (p === 'normal') { LEl.value = 24; glassesOn = false; }
+      if (p === 'myopic') { LEl.value = 25.4; glassesOn = false; }
+      if (p === 'hyperopic') { LEl.value = 22.9; glassesOn = false; }
+      if (p === 'myopic' || p === 'hyperopic' || p === 'normal') {
+        dEl.value = 0;
+      }
+      update();
+    });
+  });
+
+  // Gegenstand mit der Maus verschieben
+  let dragging = false;
+  function pointerG(ev) {
+    const r = canvas.getBoundingClientRect();
+    const x = (ev.clientX - r.left) * W / r.width;
+    const far = clamp(LENS_X - x, 45, 590);
+    // Umkehrung der gestauchten Darstellung
+    const ratio = (far - 45) / 545;
+    const g = ratio <= 0 ? 0.15 : -1.2 * Math.log(1 - Math.min(ratio, 0.999));
+    return clamp(g, 0.15, 6);
+  }
+  canvas.addEventListener('pointerdown', ev => {
+    const r = canvas.getBoundingClientRect();
+    const x = (ev.clientX - r.left) * W / r.width;
+    if (Math.abs(x - xAt(gFromSlider(parseFloat(gEl.value)))) < 40) {
+      dragging = true;
+      canvas.setPointerCapture(ev.pointerId);
+    }
+  });
+  canvas.addEventListener('pointermove', ev => {
+    if (!dragging) return;
+    gEl.value = sliderFromG(pointerG(ev));
+    update();
+  });
+  canvas.addEventListener('pointerup', () => { dragging = false; });
+  canvas.addEventListener('pointercancel', () => { dragging = false; });
+
+  window.addEventListener('resize', () => { fitCanvas(); update(); });
+
+  // Start (optional per Link steuerbar: ?preset=myopic&brille=auto&g=1.5)
+  const params = new URLSearchParams(location.search);
+  const preset = params.get('preset');
+  if (preset === 'normal') LEl.value = 24;
+  if (preset === 'myopic') LEl.value = 25.4;
+  if (preset === 'hyperopic') LEl.value = 22.9;
+  if (params.has('g')) gEl.value = sliderFromG(clamp(parseFloat(params.get('g')), 0.15, 6));
+  if (params.has('D')) dEl.value = clamp(parseFloat(params.get('D')), -8, 8);
+  if (params.get('brille') === '1') glassesOn = true;
+  if (params.get('brille') === 'auto') {
+    autoCorrection(state());
+    glassesOn = true;
+  }
+
+  fitCanvas();
+  update();
+})();
+</script>
+</body>
+</html>

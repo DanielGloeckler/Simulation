@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Interaktive Simulation zur Entstehung des Regenbogens: Brechung, innere Reflexion und Dispersion im Regentropfen – mit Spektralzerlegung und 42-Grad-Kurve.">
+<title>Regenbogen – was im Regentropfen passiert (Simulation)</title>
+<style>
+  :root{
+    --bg:#070d18;
+    --panel:#131d31;
+    --accent:#4fc3f7;
+    --gold:#ffd54f;
+    --warm:#ff8a65;
+    --good:#7ee787;
+    --violet:#b388ff;
+    --red:#ff6b6b;
+    --text:#e6eef8;
+    --muted:#8aa0bd;
+    --line:rgba(79,195,247,.18);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;padding:28px 16px 70px;min-height:100vh;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(1100px 600px at 12% -10%, #173052 0%, transparent 60%),
+      radial-gradient(900px 520px at 100% 0%, #123b46 0%, transparent 55%),
+      var(--bg);
+  }
+  .wrap{max-width:1160px;margin:0 auto}
+
+  header{text-align:center;padding:18px 0 30px}
+  .eyebrow{
+    display:inline-block;padding:5px 12px;margin-bottom:16px;
+    border:1px solid var(--line);border-radius:999px;
+    background:rgba(79,195,247,.07);
+    color:var(--accent);font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;
+  }
+  h1{
+    margin:0 0 12px;
+    font-size:clamp(1.8rem,4.6vw,3rem);
+    line-height:1.08;letter-spacing:-.02em;
+  }
+  h1 span{
+    background:linear-gradient(100deg,#ff6b6b 5%,#ffd54f 30%,#7ee787 52%,#4fc3f7 72%,#b388ff 95%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .subtitle{max-width:760px;margin:0 auto;color:var(--muted);line-height:1.65;font-size:1rem}
+  .meta{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:18px;color:var(--muted);font-size:.8rem}
+  .meta span{border:1px solid rgba(138,160,189,.2);border-radius:999px;padding:4px 11px;background:rgba(10,21,36,.5)}
+
+  main{display:grid;gap:26px}
+
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.94),rgba(15,24,39,.94));
+    border:1px solid var(--line);border-radius:18px;
+    padding:22px;box-shadow:0 16px 44px rgba(0,0,0,.35);
+  }
+  .card h2{
+    display:flex;align-items:center;gap:10px;margin:0 0 6px;
+    font-size:1.16rem;letter-spacing:.01em;
+  }
+  .card h2 .num{
+    flex:0 0 auto;width:28px;height:28px;border-radius:9px;
+    display:inline-flex;align-items:center;justify-content:center;
+    background:rgba(79,195,247,.14);border:1px solid rgba(79,195,247,.4);
+    color:var(--accent);font-size:.85rem;
+  }
+  .card-sub{margin:0 0 14px 38px;color:var(--muted);font-size:.86rem;line-height:1.5}
+
+  .canvas-wrap{overflow-x:auto;border-radius:12px;background:#060e19;position:relative}
+  .canvas-wrap::-webkit-scrollbar{height:8px}
+  .canvas-wrap::-webkit-scrollbar-thumb{background:rgba(79,195,247,.25);border-radius:999px}
+  canvas{width:100%;min-width:640px;height:auto;display:block;background:#060e19;touch-action:none}
+  #sim1{aspect-ratio:1000/560;cursor:ns-resize}
+  #sim2{aspect-ratio:1000/640;cursor:default}
+  #sim3{aspect-ratio:1000/470;cursor:crosshair}
+
+  .controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-top:16px}
+  .slider{display:flex;align-items:center;gap:10px;flex:1 1 330px;min-width:250px}
+  .slider .lbl{font-size:.85rem;color:var(--muted);white-space:nowrap}
+  .slider .lbl b{color:var(--text);font-weight:600}
+  input[type="range"]{flex:1;min-width:110px;accent-color:var(--accent);cursor:pointer}
+  .badge{
+    min-width:66px;padding:4px 10px;border-radius:999px;
+    background:rgba(79,195,247,.14);border:1px solid rgba(79,195,247,.35);
+    color:var(--accent);font-size:.82rem;font-weight:600;
+    font-variant-numeric:tabular-nums;text-align:center;
+  }
+  .chk{display:inline-flex;align-items:center;gap:7px;font-size:.84rem;color:var(--muted);cursor:pointer;user-select:none}
+  .chk input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+  .chk b{color:var(--text);font-weight:500}
+
+  .readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:15px}
+  .ro{
+    background:rgba(8,18,32,.66);border:1px solid rgba(79,195,247,.14);
+    border-radius:11px;padding:10px 13px;
+  }
+  .ro .k{display:block;font-size:.69rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .ro .v{display:block;margin-top:3px;font-size:1rem;font-weight:600;font-variant-numeric:tabular-nums}
+  .ro .v small{font-size:.78rem;font-weight:500;color:var(--muted)}
+  .c-red{color:#ff8a80}
+  .c-violet{color:#c3a6ff}
+  .c-gold{color:var(--gold)}
+  .c-green{color:var(--good)}
+
+  .formula{
+    margin-top:12px;padding:9px 14px;border-radius:7px;
+    border-left:3px solid var(--gold);background:rgba(255,213,79,.06);
+    color:var(--gold);font-family:'Cambria Math','STIX Two Math',Georgia,serif;
+    font-size:.95rem;line-height:1.55;text-align:center;
+  }
+  .formula.alt{border-left-color:var(--accent);background:rgba(79,195,247,.06);color:var(--accent);margin-top:8px}
+
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 20px;margin-top:16px;font-size:.83rem;color:var(--muted);line-height:1.55}
+  .steps .dot{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:20px;height:20px;margin-right:7px;border-radius:50%;
+    border:1px solid var(--c);color:var(--c);font-size:.7rem;font-weight:700;
+  }
+  .steps b{color:var(--text);font-weight:600}
+
+  .hint{color:var(--muted);font-size:.84rem;line-height:1.65;margin-top:13px}
+  .hint b{color:var(--text)}
+  .hint .warn{color:var(--warm)}
+  .hint code{background:rgba(79,195,247,.12);color:var(--accent);padding:1px 6px;border-radius:4px;font-size:.9em}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px;font-size:.78rem;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:14px;height:6px;border-radius:3px;display:inline-block}
+
+  .tasks{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(255,213,79,.16);border-radius:18px;padding:24px 26px;
+  }
+  .tasks h3{margin:0 0 14px;color:var(--gold);font-size:1.08rem}
+  .tasks ol{margin:0;padding-left:22px;line-height:1.8;color:#cddaeb;font-size:.9rem}
+  .tasks li{margin-bottom:7px}
+  .tasks b{color:#fff}
+
+  .note{
+    background:rgba(79,195,247,.05);border:1px solid rgba(79,195,247,.2);
+    border-radius:18px;padding:22px 26px;line-height:1.7;font-size:.9rem;color:#cddaeb;
+  }
+  .note h3{margin:0 0 10px;color:var(--accent);font-size:1.05rem}
+  .note .rainbow{
+    display:inline-block;padding:0 4px;border-radius:3px;
+    background:linear-gradient(90deg,#ff6b6b,#ffd54f,#7ee787,#4fc3f7,#b388ff);
+    -webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700;
+  }
+
+  footer{
+    margin-top:38px;padding-top:20px;border-top:1px solid rgba(138,160,189,.14);
+    display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    color:var(--muted);font-size:.8rem;
+  }
+  footer a{color:var(--accent);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+
+  @media (max-width:620px){
+    body{padding:18px 10px 56px}
+    .card{padding:15px;border-radius:14px}
+    .card-sub{margin-left:0}
+    header{padding-top:8px}
+    .canvas-wrap{overflow-x:auto}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Optik · Regenbogen</div>
+  <h1>Was passiert im <span>Regentropfen</span>?</h1>
+  <p class="subtitle">
+    Weißes Sonnenlicht trifft auf einen kugelförmigen Wassertropfen. Es wird gebrochen,
+    an der Rückseite reflektiert und beim Austritt in seine Farben zerlegt.
+    Verfolge den Strahlengang – und finde heraus, warum der Bogen bei 42° steht.
+  </p>
+  <div class="meta">
+    <span>Brechung · Reflexion · Dispersion</span>
+    <span>Klasse 7–10</span>
+    <span>farbige Strahlen real berechnet</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ================= KARTE 1: IM TROPFEN ================= -->
+  <section class="card">
+    <h2><span class="num">1</span> Im Regentropfen</h2>
+    <p class="card-sub">Ziehe den Lichtstrahl nach oben oder unten – oder benutze den Schieberegler.</p>
+
+    <div class="canvas-wrap">
+      <canvas id="sim1" aria-label="Interaktiver Strahlengang durch einen Wassertropfen mit Farbzerlegung">Dein Browser unterstützt kein Canvas.</canvas>
+    </div>
+
+    <div class="controls">
+      <label class="slider" for="bSlider">
+        <span class="lbl">Auftreffhöhe <b>b/R</b></span>
+        <input type="range" id="bSlider" min="0.02" max="0.995" step="0.001" value="0.860">
+        <span class="badge" id="bBadge">0,860</span>
+      </label>
+      <label class="chk"><input type="checkbox" id="dispChk" checked><b>Dispersion</b> (Farbspektrum)</label>
+      <label class="chk"><input type="checkbox" id="exagChk" checked><b>Farben übertreiben</b> (3,5×)</label>
+      <label class="chk"><input type="checkbox" id="reflChk"><b>2. Reflexion</b> (Nebenbogen)</label>
+      <label class="chk"><input type="checkbox" id="anglesChk"><b>Normalen &amp; Winkel</b></label>
+    </div>
+
+    <div class="readouts">
+      <div class="ro"><span class="k">Auftreffhöhe b/R</span><span class="v" id="roB">0,860</span></div>
+      <div class="ro"><span class="k">Einfallswinkel θ₁</span><span class="v" id="roT1">59,3°</span></div>
+      <div class="ro"><span class="k">Brechungswinkel θ₂</span><span class="v" id="roT2">–</span></div>
+      <div class="ro"><span class="k">Winkel α zur Gegenrichtung</span><span class="v" id="roA">–</span></div>
+    </div>
+
+    <div class="formula" id="formula1">–</div>
+    <div class="formula alt" id="formula2">–</div>
+
+    <div class="steps">
+      <div><span class="dot" style="--c:#4fc3f7">1</span><b>Brechung:</b> Beim Eintritt wird das Licht zum Lot hin gebrochen.</div>
+      <div><span class="dot" style="--c:#ffd54f">2</span><b>Reflexion:</b> An der Rückseite des Tropfens wird es zurückgeworfen.</div>
+      <div><span class="dot" style="--c:#7ee787">3</span><b>Austritt:</b> Jede Farbe wird anders gebrochen – das Licht fächert sich auf.</div>
+    </div>
+
+    <p class="hint">
+      💡 <b>Probier es aus:</b> Stelle b/R auf etwa <code>0,86</code>. Dort verlassen die Strahlen
+      den Tropfen fast unter demselben Winkel – das ist der helle Regenbogen. Bei
+      <code>0,95</code> und zwei Reflexionen entsteht der Nebenbogen.
+      Die Farbtrennung ist in der Zeichnung <b>3,5× übertrieben</b>, damit du sie gut siehst –
+      die angezeigten Winkel sind real berechnet.
+    </p>
+  </section>
+
+  <!-- ================= KARTE 2: AM HIMMEL ================= -->
+  <section class="card">
+    <h2><span class="num">2</span> Am Himmel: viele Tropfen – ein Bogen</h2>
+    <p class="card-sub">Seitenansicht: Die Sonne steht im Rücken, der Regen vor dir. Nur Tropfen auf dem 42°-Kegel schicken das Regenbogenlicht ins Auge.</p>
+
+    <div class="canvas-wrap">
+      <canvas id="sim2" aria-label="Schema: Sonnenlicht, Regentropfen, Auge und 42-Grad-Kegel">Dein Browser unterstützt kein Canvas.</canvas>
+    </div>
+
+    <div class="controls">
+      <label class="slider" for="sunSlider">
+        <span class="lbl">Sonnenhöhe über dem Horizont</span>
+        <input type="range" id="sunSlider" min="0" max="60" step="0.5" value="18">
+        <span class="badge" id="sunBadge">18°</span>
+      </label>
+      <label class="chk"><input type="checkbox" id="rainChk" checked><b>Regen</b> animieren</label>
+    </div>
+
+    <p class="hint" id="skyHint">
+      Nur Tropfen, die von hier aus unter ≈42° zur Gegenrichtung der Sonne stehen, schicken
+      konzentriertes Regenbogenlicht ins Auge. Alle anderen Tropfen streuen nur diffuses Licht.
+    </p>
+  </section>
+
+  <!-- ================= KARTE 3: 42 GRAD ================= -->
+  <section class="card">
+    <h2><span class="num">3</span> Warum gerade 42°?</h2>
+    <p class="card-sub">Der Bogenwinkel hängt davon ab, wo der Strahl den Tropfen trifft. Klicke oder ziehe im Diagramm.</p>
+
+    <div class="canvas-wrap">
+      <canvas id="sim3" aria-label="Diagramm: Bogenwinkel in Abhängigkeit von der Auftreffhöhe">Dein Browser unterstützt kein Canvas.</canvas>
+    </div>
+
+    <p class="hint">
+      Bei <b>b/R ≈ 0,86</b> hat die Kurve ein <b>Maximum</b>. Dort verlassen viele Strahlen den
+      Tropfen unter fast demselben Winkel – sie häufen sich und der Bogen wird hell.
+      Rot liegt bei 42,4° <b>außen</b>, Violett bei 40,4° <b>innen</b>. Zwischen dem Hauptbogen
+      und dem Nebenbogen (≈ 51°) bleibt der Himmel auffällig dunkel: der
+      <b>Alexander’sche Dunkelstreifen</b>.
+    </p>
+  </section>
+
+  <!-- ================= AUFGABEN ================= -->
+  <section class="tasks">
+    <h3>🧪 Aufgaben zum Entdecken</h3>
+    <ol>
+      <li>Verschiebe den Strahl im ersten Experiment. Bei welchem <b>b/R</b> verlässt das Licht den Tropfen am steilsten nach unten? Vergleiche mit der 42°-Kurve.</li>
+      <li>Schalte die <b>Dispersion</b> aus. Was verändert sich am Strahlengang? Warum ist das Spektrum für den Regenbogen entscheidend?</li>
+      <li>Erkläre mit dem Snellius-Gesetz, warum Violett stärker gebrochen wird als Rot. Warum liegt Violett trotzdem <b>innen</b>?</li>
+      <li>Stelle <b>2 Reflexionen</b> ein und suche den Winkel des Nebenbogens. Warum ist die Farbfolge dort umgekehrt?</li>
+      <li>Erhöhe die <b>Sonnenhöhe</b> im zweiten Experiment bis über 42°. Was passiert mit dem Bogen? Begründe.</li>
+      <li>Warum siehst du einen Regenbogen nur, wenn die Sonne <b>hinter</b> dir steht und es <b>vor</b> dir regnet?</li>
+    </ol>
+  </section>
+
+  <!-- ================= MERKSATZ ================= -->
+  <section class="note">
+    <h3>💡 Merksatz</h3>
+    <p>
+      Sonnenlicht dringt in einen Regentropfen ein, wird gebrochen, an der Rückseite
+      <b>total reflektiert</b> und beim Austritt erneut gebrochen. Wasser hat für jede
+      Wellenlänge einen etwas anderen Brechungsindex: Rot wird schwächer, Violett stärker
+      abgelenkt. Deshalb verlassen die Farben den Tropfen unter leicht unterschiedlichen
+      Winkeln – Rot bei etwa <b>42°</b>, Violett bei etwa <b>40,5°</b> zur Gegenrichtung der
+      Sonne. Die Häufung der Strahlen an dieser Stelle macht den <span class="rainbow">Regenbogen</span>
+      sichtbar. Er ist eigentlich ein Kreis; der Horizont schneidet nur den unteren Teil ab.
+    </p>
+  </section>
+
+  <footer>
+    <span>Physik-Simulation · Regenbogen</span>
+    <span><a href="../index.html">← Zur Übersicht der Simulationen</a></span>
+  </footer>
+
+</main>
+</div>
+
+<script>
+'use strict';
+
+/* ================================================================
+   HILFSFUNKTIONEN
+   ================================================================ */
+const D2R = d => d * Math.PI / 180;
+const R2D = r => r * 180 / Math.PI;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const $ = id => document.getElementById(id);
+
+function fmt(v, d = 1) {
+  if (!Number.isFinite(v)) return '–';
+  return v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function rgba(c, a) { return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+
+/* Brechungsindex von Wasser (Cauchy-Näherung, λ in nm) */
+function nWater(wl) { return 1.3242 + 3300 / (wl * wl); }
+
+/* Wellenlänge → Bildschirmfarbe */
+function wavelengthToRGB(wl) {
+  let r = 0, g = 0, b = 0;
+  if (wl >= 380 && wl < 440) { r = -(wl - 440) / 60; b = 1; }
+  else if (wl < 490) { g = (wl - 440) / 50; b = 1; }
+  else if (wl < 510) { g = 1; b = -(wl - 510) / 20; }
+  else if (wl < 580) { r = (wl - 510) / 70; g = 1; }
+  else if (wl < 645) { r = 1; g = -(wl - 645) / 65; }
+  else { r = 1; }
+
+  let f = 1;
+  if (wl > 700) f = 0.3 + 0.7 * (780 - wl) / 80;
+  else if (wl < 420) f = 0.3 + 0.7 * (wl - 380) / 40;
+
+  const gamma = 0.8;
+  return [
+    Math.round(255 * Math.pow(Math.max(0, r) * f, gamma)),
+    Math.round(255 * Math.pow(Math.max(0, g) * f, gamma)),
+    Math.round(255 * Math.pow(Math.max(0, b) * f, gamma))
+  ];
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function canvasTag(ctx, x, y, text, color = '#e6eef8', align = 'left', font = '13px "Segoe UI", system-ui, sans-serif') {
+  ctx.save();
+  ctx.font = font;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  const w = ctx.measureText(text).width;
+  let bx = x;
+  if (align === 'center') bx = x - w / 2;
+  else if (align === 'right') bx = x - w;
+  ctx.fillStyle = 'rgba(6,14,26,.72)';
+  roundRect(ctx, bx - 7, y - 10, w + 14, 20, 7);
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+/* Canvas-Größe an die Anzeige anpassen (HiDPI) */
+function createView(id, W, H) {
+  const c = $(id);
+  const ctx = c.getContext('2d');
+  const v = { c, ctx, W, H, s: 1, onResize: null };
+
+  v.resize = () => {
+    const cssW = c.clientWidth || W;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const pw = Math.max(1, Math.round(cssW * dpr));
+    const ph = Math.max(1, Math.round(cssW * H / W * dpr));
+    if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
+    v.s = pw / W;
+  };
+  v.begin = () => {
+    v.resize();
+    ctx.setTransform(v.s, 0, 0, v.s, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+  };
+  new ResizeObserver(() => { v.resize(); if (v.onResize) v.onResize(); }).observe(c);
+  v.resize();
+  return v;
+}
+
+function pointerPos(v, ev) {
+  const r = v.c.getBoundingClientRect();
+  return {
+    x: (ev.clientX - r.left) / r.width * v.W,
+    y: (ev.clientY - r.top) / r.height * v.H
+  };
+}
+
+/* ================================================================
+   STRAHLENGEOMETRIE IM KUGELFÖRMIGEN TROPFEN
+   ================================================================ */
+function circleHit(P, d) {
+  /* zweiter Schnittpunkt der Geraden P + s·d (|d|=1) mit dem Einheitskreis */
+  const s = -2 * (P.x * d.x + P.y * d.y);
+  return { x: P.x + s * d.x, y: P.y + s * d.y };
+}
+
+function refract(d, nTowardIncident, eta) {
+  /* d: einfallende Richtung, nTowardIncident: Einheitsnormale zum einfallenden Medium,
+     eta = n1/n2.  Liefert die gebrochene Richtung (Einheitsvektor). */
+  const cosI = clamp(-(d.x * nTowardIncident.x + d.y * nTowardIncident.y), -1, 1);
+  const sin2 = eta * eta * (1 - cosI * cosI);
+  const cosT = Math.sqrt(Math.max(0, 1 - sin2));
+  let t = {
+    x: eta * d.x + (eta * cosI - cosT) * nTowardIncident.x,
+    y: eta * d.y + (eta * cosI - cosT) * nTowardIncident.y
+  };
+  const l = Math.hypot(t.x, t.y) || 1;
+  return { x: t.x / l, y: t.y / l };
+}
+
+/**
+ * Verfolgt einen achsparallelen Strahl durch den Einheitskreis.
+ * b = Auftreffhöhe (0…1), n = Brechungsindex, reflections = 1 oder 2.
+ */
+function traceDrop(b, n, reflections) {
+  b = clamp(b, 0.002, 0.9995);
+  const P0 = { x: -Math.sqrt(1 - b * b), y: -b };
+  const theta1 = Math.asin(b);
+  const theta2 = Math.asin(Math.min(0.999999, b / n));
+
+  let dir = refract({ x: 1, y: 0 }, P0, 1 / n);   // Eintritt
+  const pts = [P0];
+  let P = P0;
+
+  for (let k = 0; k < reflections; k++) {
+    P = circleHit(P, dir);
+    pts.push(P);
+    const dot = dir.x * P.x + dir.y * P.y;
+    dir = { x: dir.x - 2 * dot * P.x, y: dir.y - 2 * dot * P.y }; // Reflexion
+  }
+
+  const Pexit = circleHit(P, dir);
+  pts.push(Pexit);
+  const dOut = refract(dir, { x: -Pexit.x, y: -Pexit.y }, n); // Austritt
+
+  const alpha = R2D(Math.acos(clamp(-dOut.x, -1, 1)));
+  return { b, n, reflections, theta1, theta2, alpha, pts, dOut };
+}
+
+/* Polygondarstellung */
+function screenPts(tr, cx, cy, R) {
+  return tr.pts.map(p => ({ x: cx + p.x * R, y: cy + p.y * R }));
+}
+
+function extendToBox(p, d, W, H, m = 8) {
+  const eps = 1e-6;
+  const cand = [];
+  if (d.x > eps) cand.push((W - m - p.x) / d.x);
+  else if (d.x < -eps) cand.push((m - p.x) / d.x);
+  if (d.y > eps) cand.push((H - m - p.y) / d.y);
+  else if (d.y < -eps) cand.push((m - p.y) / d.y);
+  let t = Infinity;
+  for (const v of cand) if (v > 0 && v < t) t = v;
+  if (!isFinite(t)) t = 0;
+  return { x: p.x + d.x * t, y: p.y + d.y * t };
+}
+
+function strokePath(ctx, path, color, width) {
+  if (path.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(path[0].x, path[0].y);
+  for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
+
+function pointOnPath(path, frac) {
+  let total = 0;
+  const seg = [];
+  for (let i = 1; i < path.length; i++) {
+    const d = Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+    seg.push(d); total += d;
+  }
+  let target = frac * total;
+  for (let i = 0; i < seg.length; i++) {
+    if (target <= seg[i]) {
+      const u = seg[i] > 1e-6 ? target / seg[i] : 0;
+      return {
+        x: path[i].x + (path[i + 1].x - path[i].x) * u,
+        y: path[i].y + (path[i + 1].y - path[i].y) * u
+      };
+    }
+    target -= seg[i];
+  }
+  return path[path.length - 1];
+}
+
+/* ================================================================
+   ANSICHTEN / ZUSTAND
+   ================================================================ */
+const S1 = createView('sim1', 1000, 560);
+const S2 = createView('sim2', 1000, 640);
+const S3 = createView('sim3', 1000, 470);
+
+const CX = 560, CY = 300, CR = 190;
+const DROP_WL = [];
+for (let wl = 400; wl <= 700.01; wl += 15) DROP_WL.push(wl);
+
+const state = {
+  b: 0.86,
+  dispersion: true,
+  exaggerate: true,
+  secondary: false,
+  angles: false,
+  sunElev: 18,
+  rain: true
+};
+
+const EXAG = 3.5; // Übertreibungsfaktor nur für die Zeichnung
+
+/* Brechungsindex für die Zeichnung – optional mit übertriebener Dispersion */
+function nDraw(wl) {
+  return state.exaggerate
+    ? 1.333 + (nWater(wl) - 1.333) * EXAG
+    : nWater(wl);
+}
+
+const bSlider = $('bSlider');
+const bBadge = $('bBadge');
+const dispChk = $('dispChk');
+const exagChk = $('exagChk');
+const reflChk = $('reflChk');
+const anglesChk = $('anglesChk');
+const sunSlider = $('sunSlider');
+const sunBadge = $('sunBadge');
+const rainChk = $('rainChk');
+const skyHint = $('skyHint');
+const roB = $('roB');
+const roT1 = $('roT1');
+const roT2 = $('roT2');
+const roA = $('roA');
+const formula1 = $('formula1');
+const formula2 = $('formula2');
+
+/* ================================================================
+   KARTE 1 – STRAHLENGANG
+   ================================================================ */
+function drawDropBody(ctx, cx, cy, R) {
+  ctx.save();
+
+  /* Glas-Körper */
+  const g = ctx.createRadialGradient(cx - R * 0.38, cy - R * 0.42, R * 0.08, cx, cy, R);
+  g.addColorStop(0, 'rgba(165,225,255,.24)');
+  g.addColorStop(0.55, 'rgba(62,140,215,.13)');
+  g.addColorStop(1, 'rgba(18,64,120,.20)');
+
+  ctx.shadowColor = 'rgba(80,170,255,.45)';
+  ctx.shadowBlur = 34;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  /* Rand */
+  ctx.strokeStyle = 'rgba(155,215,255,.55)';
+  ctx.lineWidth = 2.6;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, R - 7, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(190,230,255,.12)';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+
+  /* Glanzlicht */
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(cx - R * 0.42, cy - R * 0.46, R * 0.24, R * 0.12, -0.65, 0, Math.PI * 2);
+  ctx.clip();
+  const hl = ctx.createRadialGradient(
+    cx - R * 0.44, cy - R * 0.48, 0,
+    cx - R * 0.42, cy - R * 0.46, R * 0.26
+  );
+  hl.addColorStop(0, 'rgba(255,255,255,.30)');
+  hl.addColorStop(0.6, 'rgba(255,255,255,.10)');
+  hl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hl;
+  ctx.fillRect(cx - R * 0.76, cy - R * 0.72, R * 0.62, R * 0.52);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawBadge(ctx, x, y, num, color) {
+  x = clamp(x, 20, S1.W - 20);
+  y = clamp(y, 20, S1.H - 20);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, 12.5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(7,16,29,.92)';
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '700 13px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(num), x, y + 0.5);
+  ctx.restore();
+}
+
+function drawAngleOverlay(ctx, tr, cx, cy, R) {
+  const pts = screenPts(tr, cx, cy, R);
+  const P1 = pts[0];
+  const P2 = pts[1];
+  const nOut = { x: (P1.x - cx) / R, y: (P1.y - cy) / R };
+  const nIn = { x: -nOut.x, y: -nOut.y };
+
+  ctx.save();
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = 'rgba(190,215,240,.32)';
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(P1.x + nOut.x * 42, P1.y + nOut.y * 42);
+  ctx.lineTo(P1.x + nIn.x * 118, P1.y + nIn.y * 118);
+  ctx.stroke();
+
+  /* Normale an den Reflexions-/Austrittspunkten */
+  for (const p of [P2, pts[pts.length - 1]]) {
+    const nx = (p.x - cx) / R, ny = (p.y - cy) / R;
+    ctx.beginPath();
+    ctx.moveTo(p.x - nx * 26, p.y - ny * 26);
+    ctx.lineTo(p.x + nx * 26, p.y + ny * 26);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  const aIn = 0;
+  const aN = Math.atan2(nIn.y, nIn.x);
+  const aT = Math.atan2(P2.y - P1.y, P2.x - P1.x);
+
+  function arcShort(r, a0, a1, color, label, lf, lr) {
+    let d = a1 - a0;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(P1.x, P1.y, r, a0, a0 + d, d < 0);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    const am = a0 + d * lf;
+    ctx.fillStyle = color;
+    ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, P1.x + Math.cos(am) * lr, P1.y + Math.sin(am) * lr);
+  }
+
+  arcShort(64, aIn, aN, 'rgba(79,195,247,.95)', 'θ₁', 0.5, 92);
+  arcShort(38, aT, aN, 'rgba(126,231,135,.95)', 'θ₂', 0.8, 56);
+  ctx.restore();
+}
+
+function renderSim1(t) {
+  const { ctx, W, H } = S1;
+  S1.begin();
+
+  const b = state.b;
+  const entryX = CX - Math.sqrt(1 - b * b) * CR;
+  const entryY = CY - b * CR;
+
+  /* Hintergrund */
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0a1829');
+  bg.addColorStop(1, '#060d18');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const glow = ctx.createRadialGradient(CX, CY, 40, CX, CY, 430);
+  glow.addColorStop(0, 'rgba(42,108,180,.20)');
+  glow.addColorStop(1, 'rgba(42,108,180,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  /* optische Achse */
+  ctx.save();
+  ctx.strokeStyle = 'rgba(138,160,189,.14)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 9]);
+  ctx.beginPath();
+  ctx.moveTo(28, CY);
+  ctx.lineTo(W - 28, CY);
+  ctx.stroke();
+  ctx.restore();
+
+  drawDropBody(ctx, CX, CY, CR);
+
+  /* b-Markierung (über dem Tropfen, damit sie gut sichtbar bleibt) */
+  const bx = entryX - 18;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(160,190,220,.55)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(bx, CY);
+  ctx.lineTo(bx, entryY);
+  ctx.moveTo(bx - 6, CY);
+  ctx.lineTo(bx + 6, CY);
+  ctx.moveTo(bx - 6, entryY);
+  ctx.lineTo(bx + 6, entryY);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(205,220,240,.85)';
+  ctx.font = '13px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('b', bx - 8, (CY + entryY) / 2);
+  ctx.restore();
+
+  /* Strahlen berechnen */
+  const refl = state.secondary ? 2 : 1;
+  const items = [];
+  if (state.dispersion) {
+    for (const wl of DROP_WL) {
+      const tr = traceDrop(b, nDraw(wl), refl);
+      if (tr) items.push({ wl, tr, color: wavelengthToRGB(wl) });
+    }
+  } else {
+    const tr = traceDrop(b, 1.333, refl);
+    if (tr) items.push({ wl: 550, tr, color: [220, 236, 255], mono: true });
+  }
+
+  /* einfallendes weißes Licht */
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,245,218,.92)';
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(255,213,79,.55)';
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.moveTo(22, entryY);
+  ctx.lineTo(entryX, entryY);
+  ctx.stroke();
+  ctx.restore();
+
+  canvasTag(ctx, 28, entryY - 18, 'weißes Sonnenlicht', 'rgba(255,224,150,.92)', 'left', '12px "Segoe UI", system-ui, sans-serif');
+
+  /* Spektrum im und hinter dem Tropfen */
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+
+  for (const it of items) {
+    const pts = screenPts(it.tr, CX, CY, CR);
+    const exit = pts[pts.length - 1];
+    const end = extendToBox(exit, it.tr.dOut, W, H);
+    const path = pts.concat([end]);
+    const col = it.color;
+
+    strokePath(ctx, path, rgba(col, 0.10), 7);
+    strokePath(ctx, path, rgba(col, it.mono ? 0.95 : 0.62), 1.9);
+  }
+
+  /* Lichtpulse entlang der Strahlen */
+  const pulse = (t * 0.24) % 1;
+  for (const it of items) {
+    const pts = screenPts(it.tr, CX, CY, CR);
+    const exit = pts[pts.length - 1];
+    const end = extendToBox(exit, it.tr.dOut, W, H);
+    const path = pts.concat([end]);
+    const col = it.color;
+
+    for (let k = 0; k < 3; k++) {
+      const p = pointOnPath(path, (pulse + k / 3) % 1);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, it.mono ? 2.6 : 2.1, 0, Math.PI * 2);
+      ctx.fillStyle = rgba(col, 0.95);
+      ctx.fill();
+    }
+  }
+
+  /* weißer Puls vor dem Eintritt */
+  for (let k = 0; k < 2; k++) {
+    const f = (pulse * 2 + k / 2) % 1;
+    const x = 22 + (entryX - 22) * f;
+    ctx.beginPath();
+    ctx.arc(x, entryY, 2.8, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,246,220,.95)';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  /* Punkte und Nummern */
+  if (items.length) {
+    const base = items[Math.floor(items.length / 2)];
+    const pts = screenPts(base.tr, CX, CY, CR);
+    const P1 = pts[0], P2 = pts[1], P3 = pts[pts.length - 1];
+
+    const marker = (p, num, color) => {
+      const ox = (p.x - CX) / CR, oy = (p.y - CY) / CR;
+      const bxp = p.x + ox * 30, byp = p.y + oy * 30;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(220,235,250,.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(p.x + ox * 7, p.y + oy * 7);
+      ctx.lineTo(bxp - ox * 13, byp - oy * 13);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4.2, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(6,14,26,.9)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+
+      drawBadge(ctx, bxp, byp, num, color);
+    };
+
+    marker(P1, 1, '#4fc3f7');
+    marker(P2, 2, '#ffd54f');
+    marker(P3, 3, '#7ee787');
+
+    if (state.angles) drawAngleOverlay(ctx, base.tr, CX, CY, CR);
+
+    /* "zum Auge" am Rand */
+    const end = extendToBox(P3, base.tr.dOut, W, H, 10);
+    let tx = end.x, ty = end.y, align = 'left';
+    if (end.x > W - 170) { align = 'right'; tx = end.x - 8; }
+    else if (end.x < 170) { align = 'left'; tx = end.x + 8; }
+    if (end.y > H - 46) ty = end.y - 26;
+    else if (end.y < 46) ty = end.y + 26;
+    ty = clamp(ty, 16, H - 16);
+
+    canvasTag(ctx, tx, ty, 'zum Auge', 'rgba(220,235,250,.9)', align, '12px "Segoe UI", system-ui, sans-serif');
+  }
+
+  /* Fußnote */
+  ctx.save();
+  ctx.fillStyle = 'rgba(138,160,189,.65)';
+  ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  const note = (state.dispersion && state.exaggerate)
+    ? 'Tropfen stark vergrößert · Farbtrennung 3,5× übertrieben · Winkelwerte real'
+    : 'Tropfen stark vergrößert · Strahlengang maßstäblich';
+  ctx.fillText(note, W - 18, H - 14);
+  ctx.restore();
+}
+
+/* ================================================================
+   KARTE 2 – AM HIMMEL
+   ================================================================ */
+const EYE = { x: 292, y: 458 };
+const HORIZON = 500;
+
+const RAIN_DROPS = (() => {
+  let seed = 20260417;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  const arr = [];
+  for (let i = 0; i < 140; i++) {
+    arr.push({
+      x: 548 + rnd() * 424,
+      y: 105 + rnd() * 372,
+      r: 1.6 + rnd() * 4.2,
+      speed: 34 + rnd() * 70,
+      phase: rnd() * 400
+    });
+  }
+  return arr;
+})();
+
+function drawSun(ctx, x, y, r) {
+  ctx.save();
+  const g = ctx.createRadialGradient(x, y, 2, x, y, r * 4.2);
+  g.addColorStop(0, 'rgba(255,230,140,.95)');
+  g.addColorStop(0.3, 'rgba(255,213,79,.35)');
+  g.addColorStop(1, 'rgba(255,213,79,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 4.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffe27a';
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,226,122,.75)';
+  ctx.lineWidth = 1.8;
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4 + 0.2;
+    ctx.beginPath();
+    ctx.moveTo(x + Math.cos(a) * (r + 6), y + Math.sin(a) * (r + 6));
+    ctx.lineTo(x + Math.cos(a) * (r + 13), y + Math.sin(a) * (r + 13));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawRainDrop(ctx, x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(120,180,235,.15)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(155,210,255,.55)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  if (r > 3.2) {
+    ctx.beginPath();
+    ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.28, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fill();
+  }
+}
+
+function drawEye(ctx, x, y) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x - 24, y);
+  ctx.quadraticCurveTo(x, y - 20, x + 24, y);
+  ctx.quadraticCurveTo(x, y + 20, x - 24, y);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(8,18,32,.9)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(210,228,245,.85)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(x + 2, y, 7.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#4fc3f7';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x + 3, y, 3.4, 0, Math.PI * 2);
+  ctx.fillStyle = '#07111e';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x + 0.5, y - 2.5, 1.7, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawInset(ctx, e, t) {
+  const x = 714, y = 22, w = 262, h = 200;
+  const hz = y + h * 0.72;
+  const cx = x + w / 2;
+  const R = 72;
+  const cy = hz + R * Math.tan(e) / Math.tan(D2R(42));
+  const cols = ['#ff5252', '#ff9f1a', '#ffe14d', '#5ee06a', '#4fc3f7', '#5b6bff', '#b388ff'];
+
+  ctx.save();
+  roundRect(ctx, x, y, w, h, 14);
+  ctx.fillStyle = '#08131f';
+  ctx.fill();
+
+  ctx.save();
+  ctx.clip();
+
+  /* Himmel */
+  const sky = ctx.createLinearGradient(0, y, 0, y + h);
+  sky.addColorStop(0, '#0a1a2e');
+  sky.addColorStop(0.7, '#16324c');
+  sky.addColorStop(1, '#1d3d57');
+  ctx.fillStyle = sky;
+  ctx.fillRect(x, y, w, h);
+
+  /* Regen (Striche) */
+  ctx.strokeStyle = 'rgba(160,200,235,.22)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 42; i++) {
+    const rx = x + ((i * 37 + 11) % w);
+    const ry = y + ((i * 53 + (state.rain ? t * 60 : 0)) % (h * 0.7));
+    ctx.beginPath();
+    ctx.moveTo(rx, ry);
+    ctx.lineTo(rx - 2, ry + 9);
+    ctx.stroke();
+  }
+
+  /* Boden */
+  ctx.fillStyle = '#0b1d16';
+  ctx.fillRect(x, hz, w, y + h - hz);
+  ctx.strokeStyle = 'rgba(120,180,200,.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, hz);
+  ctx.lineTo(x + w, hz);
+  ctx.stroke();
+
+  /* Regenbogen */
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, hz - y);
+  ctx.clip();
+  for (let i = 0; i < cols.length; i++) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, R - i * 1.15, 0, Math.PI * 2);
+    ctx.strokeStyle = cols[i];
+    ctx.globalAlpha = 0.82;
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.restore();
+
+  /* Rahmen + Titel */
+  ctx.strokeStyle = 'rgba(79,195,247,.28)';
+  ctx.lineWidth = 1.4;
+  roundRect(ctx, x, y, w, h, 14);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(230,238,248,.9)';
+  ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('So siehst du es', x + 13, y + 11);
+
+  if (state.sunElev >= 42) {
+    ctx.fillStyle = 'rgba(255,138,101,.95)';
+    ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Bogen unter dem Horizont', x + w / 2, y + h * 0.34);
+    ctx.fillStyle = 'rgba(138,160,189,.8)';
+    ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText('von hier aus nicht sichtbar', x + w / 2, y + h * 0.34 + 18);
+  }
+
+  ctx.restore();
+}
+
+function renderSim2(t) {
+  const { ctx, W, H } = S2;
+  S2.begin();
+
+  const e = D2R(state.sunElev);
+  const axisAng = e;
+  const upAng = e - D2R(42);
+
+  /* Himmel */
+  const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
+  sky.addColorStop(0, '#081527');
+  sky.addColorStop(0.55, '#10253d');
+  sky.addColorStop(1, '#1c3a55');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, HORIZON);
+
+  const sunGlow = ctx.createRadialGradient(64, 52, 8, 64, 52, 430);
+  sunGlow.addColorStop(0, 'rgba(255,213,79,.22)');
+  sunGlow.addColorStop(1, 'rgba(255,213,79,0)');
+  ctx.fillStyle = sunGlow;
+  ctx.fillRect(0, 0, 540, 420);
+
+  /* Sonnenstrahlen (parallel) */
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, W, HORIZON - 4);
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(255,213,79,.14)';
+  ctx.lineWidth = 1.5;
+  for (let k = -4; k < 12; k++) {
+    const y0 = -180 + k * 74;
+    ctx.beginPath();
+    ctx.moveTo(0, y0);
+    ctx.lineTo(W, y0 + Math.tan(e) * W);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  /* Boden */
+  const ground = ctx.createLinearGradient(0, HORIZON, 0, H);
+  ground.addColorStop(0, '#10251c');
+  ground.addColorStop(1, '#07110d');
+  ctx.fillStyle = ground;
+  ctx.fillRect(0, HORIZON, W, H - HORIZON);
+
+  ctx.strokeStyle = 'rgba(130,190,190,.25)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, HORIZON);
+  ctx.lineTo(W, HORIZON);
+  ctx.stroke();
+
+  /* Hügel */
+  ctx.fillStyle = 'rgba(9,26,20,.85)';
+  ctx.beginPath();
+  ctx.moveTo(0, HORIZON);
+  ctx.quadraticCurveTo(150, HORIZON - 34, 330, HORIZON);
+  ctx.quadraticCurveTo(520, HORIZON - 26, 720, HORIZON);
+  ctx.quadraticCurveTo(880, HORIZON - 40, 1000, HORIZON);
+  ctx.lineTo(1000, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+
+  /* Regenvorhang */
+  const veil = ctx.createLinearGradient(520, 0, 990, 0);
+  veil.addColorStop(0, 'rgba(90,150,210,0)');
+  veil.addColorStop(0.2, 'rgba(90,150,210,.07)');
+  veil.addColorStop(1, 'rgba(90,150,210,.14)');
+  ctx.fillStyle = veil;
+  ctx.fillRect(520, 70, 470, HORIZON - 70);
+
+  /* Regentropfen */
+  const tt = state.rain ? t : 0;
+  for (const d of RAIN_DROPS) {
+    const y = 105 + ((d.phase + tt * d.speed) % 380);
+    if (y > HORIZON - 6) continue;
+    drawRainDrop(ctx, d.x, y, d.r);
+  }
+
+  /* Sonne + Beschriftung */
+  drawSun(ctx, 52, 46, 17);
+  canvasTag(ctx, 78, 48, 'Sonne (im Rücken)', 'rgba(255,224,150,.9)', 'left', '12px "Segoe UI", system-ui, sans-serif');
+
+  /* Geometrie */
+  const A = {
+    x: EYE.x + Math.cos(axisAng) * 410,
+    y: EYE.y + Math.sin(axisAng) * 410
+  };
+
+  /* Gegenrichtung der Sonne */
+  ctx.save();
+  ctx.setLineDash([7, 6]);
+  ctx.strokeStyle = 'rgba(205,220,238,.36)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(EYE.x, EYE.y);
+  ctx.lineTo(A.x, A.y);
+  ctx.stroke();
+  ctx.restore();
+
+  if (A.y < H - 18) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(205,220,238,.55)';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(A.x - 5, A.y - 5); ctx.lineTo(A.x + 5, A.y + 5);
+    ctx.moveTo(A.x + 5, A.y - 5); ctx.lineTo(A.x - 5, A.y + 5);
+    ctx.stroke();
+    ctx.restore();
+    canvasTag(ctx, A.x + 10, A.y + 2, 'Gegenpunkt der Sonne', 'rgba(190,208,230,.85)', 'left', '11px "Segoe UI", system-ui, sans-serif');
+  }
+
+  /* 42°-Kegellinie */
+  ctx.save();
+  ctx.setLineDash([6, 7]);
+  ctx.strokeStyle = 'rgba(79,195,247,.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(EYE.x, EYE.y);
+  ctx.lineTo(EYE.x + Math.cos(upAng) * 580, EYE.y + Math.sin(upAng) * 580);
+  ctx.stroke();
+  ctx.restore();
+
+  /* Winkelbogen 42° */
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(EYE.x, EYE.y, 86, upAng, axisAng);
+  ctx.strokeStyle = 'rgba(79,195,247,.75)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+  ctx.stroke();
+  ctx.restore();
+
+  const midAng = (upAng + axisAng) / 2;
+  canvasTag(
+    ctx,
+    EYE.x + Math.cos(midAng) * 112,
+    EYE.y + Math.sin(midAng) * 112,
+    '42°', 'rgba(160,225,255,.95)', 'center', '600 13px "Segoe UI", system-ui, sans-serif'
+  );
+
+  /* Beispieltropfen auf dem 42°-Kegel */
+  if (state.sunElev < 42) {
+    const dists = [340, 420, 500];
+    for (let i = 0; i < dists.length; i++) {
+      const d = dists[i];
+      const p = {
+        x: EYE.x + Math.cos(upAng) * d,
+        y: EYE.y + Math.sin(upAng) * d
+      };
+      const r = 9 - i * 1.2;
+
+      /* einfallendes Sonnenlicht */
+      const from = {
+        x: p.x - Math.cos(e) * 520,
+        y: p.y - Math.sin(e) * 520
+      };
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,213,79,.58)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.restore();
+
+      /* Tropfen */
+      ctx.save();
+      ctx.shadowColor = 'rgba(120,190,255,.7)';
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(120,190,245,.22)';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(165,220,255,.85)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.restore();
+
+      /* Regenbogenlicht zum Auge (Rot außen, Violett innen) */
+      const ex = EYE.x - p.x, ey = EYE.y - p.y;
+      const len = Math.hypot(ex, ey) || 1;
+      const ux = ex / len, uy = ey / len;
+      const px = -uy, py = ux;
+      const beams = [
+        { c: 'rgba(255,90,90,.8)', o: 4.5 },
+        { c: 'rgba(255,213,79,.55)', o: 0 },
+        { c: 'rgba(179,136,255,.8)', o: -4.5 }
+      ];
+      for (const beam of beams) {
+        ctx.beginPath();
+        ctx.moveTo(p.x + px * beam.o, p.y + py * beam.o);
+        ctx.lineTo(EYE.x, EYE.y);
+        ctx.strokeStyle = beam.c;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+      }
+    }
+  }
+
+  /* Auge */
+  drawEye(ctx, EYE.x, EYE.y);
+  canvasTag(ctx, EYE.x, EYE.y + 34, 'Auge', 'rgba(220,235,250,.9)', 'center', '12px "Segoe UI", system-ui, sans-serif');
+
+  /* Beschriftung Regen */
+  canvasTag(ctx, 948, 318, 'Regentropfen', 'rgba(170,205,235,.8)', 'right', '12px "Segoe UI", system-ui, sans-serif');
+
+  /* Hinweis bei hoher Sonne */
+  if (state.sunElev >= 42) {
+    const bw = 330, bh = 54;
+    const bx = 560, by = 240;
+    ctx.save();
+    roundRect(ctx, bx, by, bw, bh, 12);
+    ctx.fillStyle = 'rgba(8,18,32,.82)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,138,101,.5)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,170,140,.95)';
+    ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Sonne zu hoch: Der Bogen liegt', bx + bw / 2, by + 20);
+    ctx.fillText('unter dem Horizont.', bx + bw / 2, by + 38);
+    ctx.restore();
+  }
+
+  drawInset(ctx, e, tt);
+
+  /* Bildunterschrift */
+  ctx.save();
+  ctx.fillStyle = 'rgba(138,160,189,.7)';
+  ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Seitenansicht (schematisch) · Rot ≈ 42,4° · Violett ≈ 40,4°', 18, H - 14);
+  ctx.restore();
+}
+
+/* ================================================================
+   KARTE 3 – 42°-KURVE
+   ================================================================ */
+const CURVE_RED = (() => {
+  const a = [];
+  for (let i = 0; i <= 500; i++) {
+    const b = 0.002 + (0.996 * i / 500);
+    const tr = traceDrop(b, nWater(700), 1);
+    if (tr) a.push({ b, a: tr.alpha });
+  }
+  return a;
+})();
+
+const CURVE_VIOLET = (() => {
+  const a = [];
+  for (let i = 0; i <= 500; i++) {
+    const b = 0.002 + (0.996 * i / 500);
+    const tr = traceDrop(b, nWater(400), 1);
+    if (tr) a.push({ b, a: tr.alpha });
+  }
+  return a;
+})();
+
+const MAX_RED = CURVE_RED.reduce((m, p) => p.a > m.a ? p : m, CURVE_RED[0]);
+const MAX_VIOLET = CURVE_VIOLET.reduce((m, p) => p.a > m.a ? p : m, CURVE_VIOLET[0]);
+
+function valueAt(curve, b) {
+  let best = curve[0];
+  let dist = Infinity;
+  for (const p of curve) {
+    const d = Math.abs(p.b - b);
+    if (d < dist) { dist = d; best = p; }
+  }
+  return best.a;
+}
+
+function renderSim3() {
+  const { ctx, W, H } = S3;
+  S3.begin();
+
+  const m = { l: 84, r: 38, t: 30, b: 66 };
+  const pw = W - m.l - m.r;
+  const ph = H - m.t - m.b;
+  const yMax = 48;
+
+  const X = b => m.l + b * pw;
+  const Y = a => m.t + ph - (a / yMax) * ph;
+
+  S3.m = m; S3.pw = pw; S3.ph = ph; S3.X = X; S3.Y = Y; S3.yMax = yMax;
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#091625');
+  bg.addColorStop(1, '#060e19');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  /* Gitter */
+  ctx.save();
+  ctx.strokeStyle = 'rgba(138,160,189,.12)';
+  ctx.lineWidth = 1;
+  ctx.font = '12px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(138,160,189,.75)';
+
+  for (let a = 0; a <= 45; a += 5) {
+    ctx.beginPath();
+    ctx.moveTo(m.l, Y(a));
+    ctx.lineTo(m.l + pw, Y(a));
+    ctx.stroke();
+    if (a % 10 === 0) {
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(a + '°', m.l - 12, Y(a));
+    }
+  }
+  for (let b = 0; b <= 1.001; b += 0.1) {
+    ctx.beginPath();
+    ctx.moveTo(X(b), m.t);
+    ctx.lineTo(X(b), m.t + ph);
+    ctx.stroke();
+  }
+  for (let b = 0; b <= 1.001; b += 0.2) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(fmt(b, 1), X(b), m.t + ph + 12);
+  }
+  ctx.restore();
+
+  /* Achsen */
+  ctx.save();
+  ctx.strokeStyle = 'rgba(190,210,235,.4)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(m.l, m.t);
+  ctx.lineTo(m.l, m.t + ph);
+  ctx.lineTo(m.l + pw, m.t + ph);
+  ctx.stroke();
+  ctx.restore();
+
+  /* Maximum-Bereich */
+  const bandX = X(0.855);
+  const bandW = X(0.87) - bandX;
+  const band = ctx.createLinearGradient(bandX, 0, bandX + bandW, 0);
+  band.addColorStop(0, 'rgba(255,213,79,0)');
+  band.addColorStop(0.5, 'rgba(255,213,79,.10)');
+  band.addColorStop(1, 'rgba(255,213,79,0)');
+  ctx.fillStyle = band;
+  ctx.fillRect(bandX, m.t, bandW, ph);
+
+  /* Kurven */
+  function drawCurve(curve, color, glow) {
+    ctx.save();
+    ctx.beginPath();
+    curve.forEach((p, i) => {
+      const x = X(p.b), y = Y(p.a);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.8;
+    ctx.lineCap = 'round';
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawCurve(CURVE_VIOLET, '#b388ff', 'rgba(179,136,255,.55)');
+  drawCurve(CURVE_RED, '#ff6b6b', 'rgba(255,107,107,.55)');
+
+  /* Maxima */
+  const mr = { x: X(MAX_RED.b), y: Y(MAX_RED.a) };
+  const mv = { x: X(MAX_VIOLET.b), y: Y(MAX_VIOLET.a) };
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(mr.x, mr.y, 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a1524';
+  ctx.fill();
+  ctx.strokeStyle = '#ff8a80';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(mv.x, mv.y, 5.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a1524';
+  ctx.fill();
+  ctx.strokeStyle = '#c3a6ff';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+
+  ctx.restore();
+
+  /* Maxima-Beschriftung rechts neben den Kurven */
+  canvasTag(ctx, mr.x + 14, mr.y - 10,
+    'Rot ' + fmt(MAX_RED.a, 1) + '°', '#ff8a80', 'left', '600 12px "Segoe UI", system-ui, sans-serif');
+  canvasTag(ctx, mr.x + 14, mr.y + 14,
+    'Violett ' + fmt(MAX_VIOLET.a, 1) + '°', '#c3a6ff', 'left', '600 12px "Segoe UI", system-ui, sans-serif');
+
+  /* Annotation Maximum */
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,213,79,.6)';
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(382, 82);
+  ctx.lineTo(700, 82);
+  ctx.lineTo(mr.x - 14, mr.y - 2);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,213,79,.92)';
+  ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('Maximum: viele Strahlen unter', 382, 46);
+  ctx.fillText('fast demselben Winkel', 382, 63);
+  ctx.restore();
+
+  /* aktuelles b */
+  const bx = X(state.b);
+  ctx.save();
+  ctx.setLineDash([5, 6]);
+  ctx.strokeStyle = 'rgba(79,195,247,.55)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(bx, m.t);
+  ctx.lineTo(bx, m.t + ph);
+  ctx.stroke();
+  ctx.restore();
+
+  const ar = valueAt(CURVE_RED, state.b);
+  const av = valueAt(CURVE_VIOLET, state.b);
+
+  ctx.save();
+  for (const [a, col] of [[ar, '#ff6b6b'], [av, '#b388ff']]) {
+    ctx.beginPath();
+    ctx.arc(bx, Y(a), 5.2, 0, Math.PI * 2);
+    ctx.fillStyle = '#0a1524';
+    ctx.fill();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  /* Info-Box */
+  const boxW = 260, boxH = 62;
+  const boxX = m.l + 14, boxY = m.t + 12;
+  ctx.save();
+  roundRect(ctx, boxX, boxY, boxW, boxH, 10);
+  ctx.fillStyle = 'rgba(8,18,32,.82)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(79,195,247,.3)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(230,238,248,.95)';
+  ctx.fillText('aktuell: b/R = ' + fmt(state.b, 3), boxX + 14, boxY + 12);
+  ctx.font = '12px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = '#ff8a80';
+  ctx.fillText('Rot ' + fmt(ar, 1) + '°', boxX + 14, boxY + 34);
+  ctx.fillStyle = '#c3a6ff';
+  ctx.fillText('Violett ' + fmt(av, 1) + '°', boxX + 120, boxY + 34);
+  ctx.restore();
+
+  /* Achsenbeschriftung */
+  ctx.save();
+  ctx.fillStyle = 'rgba(138,160,189,.8)';
+  ctx.font = '12px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('α in Grad', m.l - 4, m.t - 10);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('Auftreffhöhe b/R  (0 = Mitte, 1 = Rand des Tropfens)', m.l + pw / 2, m.t + ph + 32);
+  ctx.restore();
+
+  /* Legende */
+  ctx.save();
+  ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  const ly = m.t + ph - 16;
+  const lx = m.l + pw - 290;
+  ctx.strokeStyle = '#ff6b6b';
+  ctx.lineWidth = 2.6;
+  ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 22, ly); ctx.stroke();
+  ctx.fillStyle = '#ff8a80';
+  ctx.fillText('Rot (700 nm)', lx + 28, ly);
+
+  ctx.strokeStyle = '#b388ff';
+  ctx.beginPath(); ctx.moveTo(lx + 118, ly); ctx.lineTo(lx + 140, ly); ctx.stroke();
+  ctx.fillStyle = '#c3a6ff';
+  ctx.fillText('Violett (400 nm)', lx + 146, ly);
+  ctx.restore();
+
+  /* Hinweis */
+  ctx.save();
+  ctx.fillStyle = 'rgba(138,160,189,.55)';
+  ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('Klicken / ziehen setzt b/R', m.l + pw, m.t + 12);
+  ctx.restore();
+}
+
+/* ================================================================
+   UI-AKTUALISIERUNG
+   ================================================================ */
+function updateSim1UI() {
+  const b = state.b;
+  const refl = state.secondary ? 2 : 1;
+  const trR = traceDrop(b, nWater(700), refl);
+  const trV = traceDrop(b, nWater(400), refl);
+  const trM = traceDrop(b, 1.333, refl);
+  const t1 = R2D(trR.theta1);
+
+  roB.textContent = fmt(b, 3);
+  roT1.textContent = fmt(t1, 1) + '°';
+
+  if (state.dispersion) {
+    roT2.innerHTML =
+      `<span class="c-red">${fmt(R2D(trR.theta2), 1)}°</span> <small>/</small> ` +
+      `<span class="c-violet">${fmt(R2D(trV.theta2), 1)}°</span>`;
+    roA.innerHTML =
+      `<span class="c-red">${fmt(trR.alpha, 1)}°</span> <small>/</small> ` +
+      `<span class="c-violet">${fmt(trV.alpha, 1)}°</span>`;
+  } else {
+    roT2.textContent = fmt(R2D(trM.theta2), 1) + '°';
+    roA.textContent = fmt(trM.alpha, 1) + '°';
+  }
+
+  if (state.dispersion) {
+    formula1.textContent =
+      `sin θ₁ = n · sin θ₂   →   1,00 · sin ${fmt(t1, 1)}° = ${fmt(nWater(700), 3)} · sin ${fmt(R2D(trR.theta2), 1)}°`;
+    if (state.secondary) {
+      formula2.textContent =
+        `α = 180° + 2θ₁ − 6θ₂   →   Rot ${fmt(trR.alpha, 1)}° · Violett ${fmt(trV.alpha, 1)}°`;
+    } else {
+      formula2.textContent =
+        `α = 4θ₂ − 2θ₁   →   Rot ${fmt(trR.alpha, 1)}° · Violett ${fmt(trV.alpha, 1)}°` +
+        `   (Δ ${fmt(Math.abs(trR.alpha - trV.alpha), 1)}°)`;
+    }
+  } else {
+    formula1.textContent =
+      `sin θ₁ = n · sin θ₂   →   1,00 · sin ${fmt(t1, 1)}° = 1,333 · sin ${fmt(R2D(trM.theta2), 1)}°`;
+    formula2.textContent = state.secondary
+      ? `α = 180° + 2θ₁ − 6θ₂ = ${fmt(trM.alpha, 1)}°  (monochromatisch)`
+      : `α = 4θ₂ − 2θ₁ = ${fmt(trM.alpha, 1)}°  (monochromatisch)`;
+  }
+}
+
+function updateSkyHint() {
+  const e = state.sunElev;
+  if (e >= 42) {
+    skyHint.innerHTML =
+      '<b class="warn">Die Sonne steht zu hoch.</b> Bei einer Sonnenhöhe über 42° liegt der ' +
+      'Regenbogen vollständig unter dem Horizont – vom Boden aus ist er dann nicht zu sehen. ' +
+      'Vom Flugzeug oder von einem hohen Berg aus kann man ihn trotzdem entdecken.';
+  } else if (e >= 35) {
+    skyHint.innerHTML =
+      'Der Bogen wird flach: Je höher die Sonne steht, desto tiefer sinkt der Mittelpunkt ' +
+      '(der Gegenpunkt der Sonne) unter den Horizont. Nur noch ein kleiner Teil des 42°-Kreises ' +
+      'ist sichtbar.';
+  } else {
+    skyHint.innerHTML =
+      'Nur Tropfen, die von hier aus unter <b>≈ 42°</b> zur Gegenrichtung der Sonne stehen, ' +
+      'schicken konzentriertes Regenbogenlicht ins Auge. Alle anderen Tropfen streuen nur ' +
+      'diffuses Licht. Im kleinen Bild rechts siehst du, was der Beobachter tatsächlich sieht.';
+  }
+}
+
+function setB(b, fromSlider = false) {
+  state.b = clamp(b, 0.02, 0.995);
+  if (!fromSlider) bSlider.value = state.b;
+  bBadge.textContent = fmt(state.b, 3);
+  updateSim1UI();
+  renderSim3();
+  renderSim1((performance.now() - t0) / 1000);
+}
+
+/* ================================================================
+   INTERAKTION
+   ================================================================ */
+bSlider.addEventListener('input', () => setB(parseFloat(bSlider.value), true));
+
+dispChk.addEventListener('change', () => {
+  state.dispersion = dispChk.checked;
+  updateSim1UI();
+  drawDynamic();
+});
+
+exagChk.addEventListener('change', () => {
+  state.exaggerate = exagChk.checked;
+  drawDynamic();
+});
+
+anglesChk.addEventListener('change', () => {
+  state.angles = anglesChk.checked;
+  drawDynamic();
+});
+
+reflChk.addEventListener('change', () => {
+  state.secondary = reflChk.checked;
+  setB(state.secondary ? 0.95 : 0.86);
+});
+
+sunSlider.addEventListener('input', () => {
+  state.sunElev = parseFloat(sunSlider.value);
+  sunBadge.textContent = fmt(state.sunElev, state.sunElev % 1 === 0 ? 0 : 1) + '°';
+  updateSkyHint();
+  drawDynamic();
+});
+
+rainChk.addEventListener('change', () => {
+  state.rain = rainChk.checked;
+  drawDynamic();
+});
+
+/* Ziehen im Tropfen-Bild */
+let drag1 = false;
+function setBFromPointer(ev) {
+  const p = pointerPos(S1, ev);
+  setB((CY - p.y) / CR);
+}
+S1.c.addEventListener('pointerdown', ev => {
+  drag1 = true;
+  if (S1.c.setPointerCapture) S1.c.setPointerCapture(ev.pointerId);
+  setBFromPointer(ev);
+  ev.preventDefault();
+});
+S1.c.addEventListener('pointermove', ev => { if (drag1) setBFromPointer(ev); });
+S1.c.addEventListener('pointerup', () => { drag1 = false; });
+S1.c.addEventListener('pointercancel', () => { drag1 = false; });
+
+/* Klicken/Ziehen im Diagramm */
+let drag3 = false;
+function setBFromPlot(ev) {
+  if (!S3.m || !S3.pw) return;
+  const p = pointerPos(S3, ev);
+  const b = (p.x - S3.m.l) / S3.pw;
+  setB(b);
+}
+S3.c.addEventListener('pointerdown', ev => {
+  drag3 = true;
+  if (S3.c.setPointerCapture) S3.c.setPointerCapture(ev.pointerId);
+  setBFromPlot(ev);
+  ev.preventDefault();
+});
+S3.c.addEventListener('pointermove', ev => { if (drag3) setBFromPlot(ev); });
+S3.c.addEventListener('pointerup', () => { drag3 = false; });
+S3.c.addEventListener('pointercancel', () => { drag3 = false; });
+
+/* ================================================================
+   ANIMATIONSSCHLEIFE
+   ================================================================ */
+S3.onResize = () => renderSim3();
+
+let t0 = performance.now();
+
+function animTime() {
+  return (performance.now() - t0) / 1000;
+}
+function drawDynamic() {
+  const t = animTime();
+  renderSim1(t);
+  renderSim2(t);
+}
+
+/* Timer statt requestAnimationFrame: so läuft die Animation auch dann,
+   wenn die Seite nur passiv in der Vorschau angezeigt wird. */
+setInterval(drawDynamic, 33);
+
+/* ================================================================
+   START
+   ================================================================ */
+setB(0.86);
+state.sunElev = parseFloat(sunSlider.value);
+sunBadge.textContent = fmt(state.sunElev, 0) + '°';
+updateSkyHint();
+renderSim3();
+drawDynamic();
+</script>
+</body>
+</html>
