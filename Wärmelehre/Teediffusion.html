@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teediffusion – kaltes und heißes Wasser im Vergleich (Simulation)</title>
+<meta name="description" content="Interaktive Simulation zur Diffusion: Teebeutel in kaltem und heißem Wasser im Teilchenmodell, Brownsche Bewegung und Stokes-Einstein-Gesetz.">
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --accent:#4fc3f7; --accent2:#ffd54f;
+    --warm:#ff8a65; --cold:#4fc3f7; --text:#e6eef8; --muted:#8aa0bd; --good:#7ee787;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:24px 16px 60px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 0%,#14233c,#070c16 70%);
+  }
+  header{max-width:1050px;margin:0 auto 22px;text-align:center}
+  h1{margin:0 0 8px;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:.3px}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.95rem;margin:0}
+  main{max-width:1050px;margin:0 auto}
+  .card{
+    background:linear-gradient(180deg,rgba(30,45,70,.92),rgba(18,28,45,.92));
+    border:1px solid rgba(79,195,247,.18); border-radius:16px; padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{width:100%;display:block;border-radius:12px;touch-action:none}
+  #cv{aspect-ratio:1000/620;background:#0a1524}
+  #chart{aspect-ratio:1000/250;margin-top:16px;background:rgba(10,21,36,.6);border:1px solid rgba(79,195,247,.12)}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:16px}
+  .controls label{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;flex:1;min-width:250px}
+  .controls label input[type=range]{flex:1 0 100%;order:2;width:100%;min-width:90px;margin-top:2px;accent-color:var(--accent)}
+  output{order:1;margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;min-width:64px;text-align:right}
+  #tHotV{color:var(--warm)}
+  button{
+    background:rgba(79,195,247,.15);border:1px solid rgba(79,195,247,.4);color:var(--accent);
+    padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.85rem;font-family:inherit;
+    transition:background .15s,border-color .15s;
+  }
+  button:hover{background:rgba(79,195,247,.28)}
+  button.primary{background:rgba(126,231,135,.16);border-color:rgba(126,231,135,.45);color:var(--good)}
+  button.primary:hover{background:rgba(126,231,135,.28)}
+  button.ghost{background:transparent;border-color:rgba(138,160,189,.35);color:var(--muted)}
+  button.ghost:hover{background:rgba(138,160,189,.12)}
+  .readout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+  .readout div{background:rgba(10,21,36,.7);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:10px 12px}
+  .readout .k{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);line-height:1.35}
+  .readout .v{font-size:1.02rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .readout .v.cold{color:var(--cold)}
+  .readout .v.warm{color:var(--warm)}
+  .hint{margin:16px 0 0;color:var(--muted);font-size:.84rem;line-height:1.6}
+  .hint b{color:var(--text)}
+  .task{
+    margin:14px 0 0;padding:14px 16px;border:1px solid rgba(255,213,79,.25);border-radius:12px;
+    background:rgba(255,213,79,.06);color:#d8dfea;font-size:.85rem;line-height:1.6;
+  }
+  .task b{color:var(--accent2)}
+  .task .warn{display:block;margin-top:8px;color:var(--muted);font-size:.8rem}
+  @media (max-width:900px){ .readout{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @media (max-width:560px){ .readout{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Teebeutel im Wasser – <span>Diffusion im Teilchenmodell</span></h1>
+  <p class="subtitle">Kaltes Wasser: langsam · heißes Wasser: schnell · Kl. 9</p>
+</header>
+<main>
+  <section class="card">
+    <canvas id="cv" aria-label="Zwei Wassergläser mit Teebeutel: links kaltes, rechts heißes Wasser"></canvas>
+
+    <div class="controls">
+      <label>Temperatur linkes Glas <input id="tCold" type="range" min="5" max="95" step="1" value="15"><output id="tColdV">15 °C</output></label>
+      <label>Temperatur rechtes Glas <input id="tHot" type="range" min="5" max="95" step="1" value="75"><output id="tHotV">75 °C</output></label>
+    </div>
+
+    <div class="controls">
+      <button id="btnPlay" class="primary">Pause</button>
+      <button id="btnReset">Neu starten</button>
+      <button id="btnWater" aria-pressed="true">Wasserteilchen: an</button>
+      <button id="btnSpeed">Zeitraffer: 1×</button>
+      <button id="presetCompare" class="ghost">15 °C / 75 °C</button>
+      <button id="presetSame" class="ghost">beide 40 °C</button>
+    </div>
+
+    <div class="readout">
+      <div><div class="k">Zeit</div><div class="v" id="rTime">0,0 s</div></div>
+      <div><div class="k">linkes Glas · Tee außerhalb des Beutels</div><div class="v cold" id="rOutA">–</div></div>
+      <div><div class="k">linkes Glas · mittlere Entfernung</div><div class="v cold" id="rDistA">–</div></div>
+      <div><div class="k">rechtes Glas · Tee außerhalb des Beutels</div><div class="v warm" id="rOutB">–</div></div>
+      <div><div class="k">rechtes Glas · mittlere Entfernung</div><div class="v warm" id="rDistB">–</div></div>
+      <div><div class="k">D-Verhältnis rechts : links</div><div class="v" id="rRatio">–</div></div>
+    </div>
+
+    <canvas id="chart" aria-label="Diagramm: Anteil der Teeteilchen außerhalb des Beutels über der Zeit"></canvas>
+
+    <p class="hint">
+      <b>Modell:</b> Die Teeteilchen führen eine Brownsche Bewegung aus. Ihre Diffusionskonstante folgt dem
+      Stokes-Einstein-Gesetz <b>D = k<sub>B</sub>·T / (6π·η·r)</b>. Entscheidend ist die Viskosität η: Sie sinkt bei
+      Wasser zwischen 15 °C und 75 °C auf etwa ein Drittel, während T zunimmt. Zusammen ergibt das ein rund
+      3,7-mal größeres D im heißen Glas – die Teeteilchen legen in derselben Zeit im Mittel eine deutlich längere
+      Strecke zurück. Der Beutel ist porös und dient nur als Quelle; die grauen Punkte sind Wasserteilchen.
+      Größe, Anzahl und Zeitmaßstab sind stark vereinfacht.
+    </p>
+
+    <div class="task">
+      <b>Beobachtungsauftrag:</b> Starte die Simulation und vergleiche beide Gläser nach 5 s, 10 s und 20 s.
+      Verfolge im Diagramm, wie schnell der Anteil außerhalb des Beutels steigt. Stelle beide Regler auf 40 °C –
+      ist der Unterschied dann noch da? Und was passiert, wenn du das linke Glas während des Laufs erwärmst?
+      <span class="warn">Nicht modelliert: Konvektion und Strömungen – sie verstärken die Durchmischung im echten
+      heißen Tee zusätzlich. Der Beutel selbst bremst die Teilchen nicht.</span>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 1000, H = 620;
+  const CW = 1000, CH = 250;
+  const TAU = Math.PI * 2;
+
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const chartCv = document.getElementById('chart');
+  const cctx = chartCv.getContext('2d');
+
+  // Glasgeometrie (logische Koordinaten)
+  const G = { topY: 150, botY: 566, topHW: 130, botHW: 88, wall: 7, waterTop: 178, botR: 26 };
+
+  const TEA_N = 46;
+  const WATER_N = 170;
+  const D_TEA15 = 330;        // px²/s bei 15 °C
+  const D_WATER15 = 1500;     // px²/s bei 15 °C
+  const GAMMA_TEA = 6.5;      // 1/s
+  const GAMMA_WATER = 13;     // 1/s
+  const MM_PER_PX = 0.33;     // Glasinnenhöhe ≈ 13 cm
+
+  const state = { running: true, time: 0, speed: 1, water: true, nextSample: 0, hist: [] };
+
+  const el = {
+    tCold: document.getElementById('tCold'),
+    tHot: document.getElementById('tHot'),
+    tColdV: document.getElementById('tColdV'),
+    tHotV: document.getElementById('tHotV'),
+    play: document.getElementById('btnPlay'),
+    reset: document.getElementById('btnReset'),
+    water: document.getElementById('btnWater'),
+    speed: document.getElementById('btnSpeed'),
+    pCompare: document.getElementById('presetCompare'),
+    pSame: document.getElementById('presetSame'),
+    rTime: document.getElementById('rTime'),
+    rOutA: document.getElementById('rOutA'),
+    rDistA: document.getElementById('rDistA'),
+    rOutB: document.getElementById('rOutB'),
+    rDistB: document.getElementById('rDistB'),
+    rRatio: document.getElementById('rRatio')
+  };
+
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const de = (v, d = 1) => Number(v).toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  let gaussSpare = null;
+  function gauss() {
+    if (gaussSpare !== null) { const v = gaussSpare; gaussSpare = null; return v; }
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    const m = Math.sqrt(-2 * Math.log(u));
+    gaussSpare = m * Math.sin(TAU * v);
+    return m * Math.cos(TAU * v);
+  }
+
+  // ---------- Physik ----------
+  // Viskosität von Wasser (Andrade-Gleichung), Pa·s
+  const eta = (Tc) => 2.414e-5 * Math.pow(10, 247.8 / (Tc + 133.15));
+  const ETA15 = eta(15);
+
+  // Relativer Diffusionskoeffizient nach Stokes-Einstein, normiert auf 15 °C
+  function dRelOf(Tc) {
+    return ((Tc + 273.15) / 288.15) * (ETA15 / eta(Tc));
+  }
+
+  const glasses = [
+    { cx: 278, slider: el.tCold, tea: [], water: [] },
+    { cx: 722, slider: el.tHot, tea: [], water: [] }
+  ];
+
+  const tempOf = (g) => parseFloat(g.slider.value);
+  const nameOf = (T) => T >= 45 ? 'heißes Wasser' : T >= 30 ? 'warmes Wasser' : 'kaltes Wasser';
+  const hueOf = (T) => {
+    const t = clamp((T - 5) / 90, 0, 1);
+    // kalt: blau → türkis, warm: gelb → rotorange (kein Grün dazwischen)
+    return t < 0.45 ? lerp(210, 185, t / 0.45) : lerp(48, 6, (t - 0.45) / 0.55);
+  };
+
+  // ---------- Geometrie ----------
+  function hwAt(y) {
+    const yJoin = G.botY - G.botR;
+    if (y <= yJoin) {
+      const t = clamp((y - G.topY) / (yJoin - G.topY), 0, 1);
+      return lerp(G.topHW, G.botHW, t);
+    }
+    const d = clamp((y - yJoin) / G.botR, 0, 1);
+    return G.botHW - G.botR + Math.sqrt(Math.max(0, G.botR * G.botR - Math.pow(d * G.botR, 2)));
+  }
+
+  function glassPath(cx, pad, closeTop) {
+    const p = new Path2D();
+    const hwT = G.topHW + pad, hwB = G.botHW + pad, r = G.botR;
+    const yT = G.topY, yB = G.botY, yJ = yB - r;
+    p.moveTo(cx - hwT, yT);
+    p.lineTo(cx - hwB, yJ);
+    p.quadraticCurveTo(cx - hwB, yB, cx - hwB + r, yB);
+    p.lineTo(cx + hwB - r, yB);
+    p.quadraticCurveTo(cx + hwB, yB, cx + hwB, yJ);
+    p.lineTo(cx + hwT, yT);
+    if (closeTop) p.closePath();
+    return p;
+  }
+
+  function waterPath(cx) {
+    const p = new Path2D();
+    const hwT = hwAt(G.waterTop), hwB = G.botHW, r = G.botR;
+    const yW = G.waterTop, yB = G.botY, yJ = yB - r;
+    p.moveTo(cx - hwT, yW);
+    p.lineTo(cx - hwB, yJ);
+    p.quadraticCurveTo(cx - hwB, yB, cx - hwB + r, yB);
+    p.lineTo(cx + hwB - r, yB);
+    p.quadraticCurveTo(cx + hwB, yB, cx + hwB, yJ);
+    p.lineTo(cx + hwT, yW);
+    p.closePath();
+    return p;
+  }
+
+  const bagRect = (g) => ({ x: g.cx - 78, y: 248, w: 156, h: 106 });
+
+  // ---------- Teilchen ----------
+  function makeParticle(x, y, r) {
+    return { x, y, vx: 0, vy: 0, r };
+  }
+
+  function randomWaterParticle(g) {
+    for (let i = 0; i < 60; i++) {
+      const y = rnd(G.waterTop + 8, G.botY - 8);
+      const hw = hwAt(y) - 6;
+      if (hw > 8) return makeParticle(rnd(g.cx - hw, g.cx + hw), y, rnd(1.7, 2.6));
+    }
+    return makeParticle(g.cx, G.botY / 2, 2.2);
+  }
+
+  function resetGlass(g) {
+    const b = bagRect(g);
+    g.tea = [];
+    g.water = [];
+    for (let i = 0; i < TEA_N; i++) {
+      g.tea.push(makeParticle(rnd(b.x + 14, b.x + b.w - 14), rnd(b.y + 14, b.y + b.h - 14), rnd(4.4, 6.0)));
+    }
+    for (let i = 0; i < WATER_N; i++) g.water.push(randomWaterParticle(g));
+  }
+
+  function resetAll() {
+    state.time = 0;
+    state.nextSample = 0;
+    state.hist = [];
+    glasses.forEach(resetGlass);
+    updateReadout();
+  }
+
+  function contain(p, g) {
+    const yMin = G.waterTop + p.r + 1;
+    const yMax = G.botY - p.r - 2;
+    if (p.y < yMin) { p.y = yMin; p.vy = Math.abs(p.vy); }
+    if (p.y > yMax) { p.y = yMax; p.vy = -Math.abs(p.vy); }
+    const hw = Math.max(2, hwAt(p.y) - p.r - 2);
+    if (p.x < g.cx - hw) { p.x = g.cx - hw; p.vx = Math.abs(p.vx); }
+    if (p.x > g.cx + hw) { p.x = g.cx + hw; p.vx = -Math.abs(p.vx); }
+  }
+
+  function step(dt) {
+    const sub = Math.max(1, Math.ceil(dt / 0.02));
+    const h = dt / sub;
+    const sq = Math.sqrt(h);
+    const dampT = Math.exp(-GAMMA_TEA * h);
+    const dampW = Math.exp(-GAMMA_WATER * h);
+
+    for (const g of glasses) {
+      const dR = dRelOf(tempOf(g));
+      const sigT = Math.sqrt(2 * GAMMA_TEA * D_TEA15 * dR);
+      const sigW = Math.sqrt(2 * GAMMA_WATER * D_WATER15 * dR);
+
+      for (const p of g.tea) {
+        p.vx = (p.vx + sigT * gauss() * sq) * dampT;
+        p.vy = (p.vy + sigT * gauss() * sq) * dampT;
+        p.x += p.vx * h;
+        p.y += p.vy * h;
+        contain(p, g);
+      }
+      for (const p of g.water) {
+        p.vx = (p.vx + sigW * gauss() * sq) * dampW;
+        p.vy = (p.vy + sigW * gauss() * sq) * dampW;
+        p.x += p.vx * h;
+        p.y += p.vy * h;
+        contain(p, g);
+      }
+    }
+  }
+
+  function statsOf(g) {
+    const b = bagRect(g);
+    let outside = 0, sum = 0;
+    for (const p of g.tea) {
+      const inBag = p.x > b.x && p.x < b.x + b.w && p.y > b.y && p.y < b.y + b.h;
+      if (!inBag) outside++;
+      sum += Math.hypot(p.x - g.cx, p.y - (b.y + b.h / 2));
+    }
+    const n = Math.max(1, g.tea.length);
+    return { pct: 100 * outside / n, distCm: (sum / n) * MM_PER_PX / 10 };
+  }
+
+  // ---------- Zeichnen ----------
+  function roundRect(c, x, y, w, h, r, fill, stroke) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+    if (fill) c.fill();
+    if (stroke) c.stroke();
+  }
+
+  function drawBackground() {
+    const bg = ctx.createRadialGradient(W / 2, -120, 80, W / 2, H * 0.95, 920);
+    bg.addColorStop(0, '#17253f');
+    bg.addColorStop(0.55, '#0c1626');
+    bg.addColorStop(1, '#070b14');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawStringAndTag(g) {
+    const b = bagRect(g);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(235,240,250,0.55)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(b.x + 34, b.y + 2);
+    ctx.quadraticCurveTo(g.cx - 98, 206, g.cx - 92, G.topY + 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(g.cx - 92, G.topY + 2);
+    ctx.quadraticCurveTo(g.cx - 106, G.topY - 14, g.cx - 126, G.topY + 16);
+    ctx.stroke();
+
+    ctx.translate(g.cx - 152, G.topY + 22);
+    ctx.rotate(-0.18);
+    ctx.fillStyle = 'rgba(245,214,158,0.92)';
+    roundRect(ctx, -14, 0, 28, 44, 4, true, false);
+    ctx.strokeStyle = 'rgba(150,110,60,0.55)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, -14, 0, 28, 44, 4, false, true);
+    ctx.fillStyle = 'rgba(120,85,45,0.92)';
+    ctx.font = '700 9px Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('TEE', 0, 20);
+    ctx.restore();
+  }
+
+  function drawBagFill(g, clip) {
+    const b = bagRect(g);
+    ctx.save();
+    ctx.clip(clip);
+    ctx.fillStyle = 'rgba(226,236,250,0.055)';
+    roundRect(ctx, b.x, b.y, b.w, b.h, 10, true, false);
+
+    ctx.strokeStyle = 'rgba(226,236,250,0.10)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = b.x + 13; x < b.x + b.w; x += 13) {
+      ctx.moveTo(x, b.y + 5);
+      ctx.lineTo(x, b.y + b.h - 5);
+    }
+    for (let y = b.y + 13; y < b.y + b.h; y += 13) {
+      ctx.moveTo(b.x + 5, y);
+      ctx.lineTo(b.x + b.w - 5, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBagOutline(g) {
+    const b = bagRect(g);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(232,240,250,0.62)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, b.x, b.y, b.w, b.h, 10, false, true);
+    ctx.strokeStyle = 'rgba(232,240,250,0.16)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, b.x + 3, b.y + 3, b.w - 6, b.h - 6, 8, false, true);
+    ctx.restore();
+  }
+
+  function drawParticles(g, clip) {
+    ctx.save();
+    ctx.clip(clip);
+
+    if (state.water) {
+      ctx.fillStyle = 'rgba(205,220,240,0.42)';
+      ctx.beginPath();
+      for (const p of g.water) {
+        ctx.moveTo(p.x + p.r, p.y);
+        ctx.arc(p.x, p.y, p.r, 0, TAU);
+      }
+      ctx.fill();
+    }
+
+    ctx.fillStyle = 'rgba(176,38,44,0.95)';
+    ctx.beginPath();
+    for (const p of g.tea) {
+      ctx.moveTo(p.x + p.r, p.y);
+      ctx.arc(p.x, p.y, p.r, 0, TAU);
+    }
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,124,112,0.5)';
+    ctx.beginPath();
+    for (const p of g.tea) {
+      const r = p.r * 0.5;
+      ctx.moveTo(p.x - p.r * 0.3 + r, p.y - p.r * 0.34);
+      ctx.arc(p.x - p.r * 0.3, p.y - p.r * 0.34, r, 0, TAU);
+    }
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawGlass(g) {
+    const T = tempOf(g);
+    const hue = hueOf(T);
+    const dR = dRelOf(T);
+
+    // Schatten
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(g.cx, G.botY + 8, G.botHW + 40, 15, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    const outer = glassPath(g.cx, G.wall, true);
+    const inner = glassPath(g.cx, 0, true);
+    const wp = waterPath(g.cx);
+
+    // Glasmasse
+    ctx.save();
+    const gg = ctx.createLinearGradient(g.cx - G.topHW - G.wall, 0, g.cx + G.topHW + G.wall, 0);
+    gg.addColorStop(0, 'rgba(226,240,255,0.22)');
+    gg.addColorStop(0.1, 'rgba(226,240,255,0.05)');
+    gg.addColorStop(0.55, 'rgba(226,240,255,0.02)');
+    gg.addColorStop(0.9, 'rgba(226,240,255,0.06)');
+    gg.addColorStop(1, 'rgba(226,240,255,0.22)');
+    ctx.fillStyle = gg;
+    ctx.fill(outer);
+    ctx.restore();
+
+    // Wasser
+    ctx.save();
+    const wg = ctx.createLinearGradient(0, G.waterTop, 0, G.botY);
+    wg.addColorStop(0, `hsla(${hue},72%,54%,0.20)`);
+    wg.addColorStop(0.55, `hsla(${hue},66%,44%,0.13)`);
+    wg.addColorStop(1, `hsla(${hue},62%,36%,0.22)`);
+    ctx.fillStyle = wg;
+    ctx.fill(wp);
+
+    // Oberfläche
+    const hwS = hwAt(G.waterTop);
+    ctx.beginPath();
+    ctx.ellipse(g.cx, G.waterTop, hwS, 9, 0, 0, TAU);
+    ctx.fillStyle = `hsla(${hue},80%,62%,0.14)`;
+    ctx.fill();
+    ctx.strokeStyle = `hsla(${hue},85%,72%,0.5)`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // Beutel + Teilchen
+    drawBagFill(g, wp);
+    drawParticles(g, wp);
+    drawBagOutline(g);
+
+    drawStringAndTag(g);
+
+    // Glaskontur
+    ctx.save();
+    ctx.strokeStyle = 'rgba(232,242,255,0.78)';
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    ctx.stroke(outer);
+
+    ctx.strokeStyle = 'rgba(232,242,255,0.12)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke(inner);
+
+    // Öffnung
+    ctx.beginPath();
+    ctx.ellipse(g.cx, G.topY, G.topHW + G.wall, 12, 0, 0, TAU);
+    ctx.fillStyle = 'rgba(6,10,18,0.55)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(232,242,255,0.85)';
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.ellipse(g.cx, G.topY, G.topHW, 9, 0, 0, TAU);
+    ctx.strokeStyle = 'rgba(232,242,255,0.22)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Glanzstreifen
+    ctx.beginPath();
+    ctx.clip(outer);
+    const gl = ctx.createLinearGradient(g.cx - G.topHW, 0, g.cx - G.topHW + 70, 0);
+    gl.addColorStop(0, 'rgba(255,255,255,0.10)');
+    gl.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gl;
+    ctx.fillRect(g.cx - G.topHW, G.topY + 10, 70, G.botY - G.topY);
+    ctx.restore();
+
+    // Beschriftung
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = `hsl(${hue},85%,70%)`;
+    ctx.font = '700 32px Segoe UI, sans-serif';
+    ctx.fillText(`${de(T, 0)} °C`, g.cx, 88);
+
+    ctx.fillStyle = 'rgba(214,226,242,0.92)';
+    ctx.font = '600 14px Segoe UI, sans-serif';
+    ctx.fillText(nameOf(T), g.cx, 114);
+
+    ctx.fillStyle = 'rgba(138,160,189,0.85)';
+    ctx.font = '12px Segoe UI, sans-serif';
+    ctx.fillText(`D = ${de(dR, 1)} × Bezugswert`, g.cx, 136);
+    ctx.restore();
+  }
+
+  function drawOverlay() {
+    ctx.save();
+
+    // Zeit
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(230,238,248,0.9)';
+    ctx.font = '600 15px Segoe UI, sans-serif';
+    ctx.fillText(`t = ${de(state.time, 1)} s`, W / 2, 44);
+
+    if (!state.running) {
+      ctx.fillStyle = 'rgba(255,213,79,0.95)';
+      ctx.font = '700 13px Segoe UI, sans-serif';
+      ctx.fillText(state.time < 0.05 ? 'bereit – Start drücken' : 'pausiert', W / 2, 66);
+    }
+
+    // Legende
+    const y = 601;
+    ctx.font = '12px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    let x = W / 2 - 250;
+
+    ctx.fillStyle = 'rgba(196,211,232,0.55)';
+    ctx.beginPath(); ctx.arc(x, y - 4, 4, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.fillText('Wasserteilchen', x + 10, y);
+
+    x += 130;
+    ctx.fillStyle = 'rgba(196,60,62,1)';
+    ctx.beginPath(); ctx.arc(x, y - 4, 5.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.fillText('Teeteilchen', x + 12, y);
+
+    x += 110;
+    ctx.fillStyle = 'rgba(138,160,189,0.9)';
+    ctx.fillText('Kasten: Teebeutel (Quelle)', x, y);
+
+    ctx.restore();
+  }
+
+  function drawScene() {
+    drawBackground();
+    for (const g of glasses) drawGlass(g);
+    drawOverlay();
+  }
+
+  // ---------- Diagramm ----------
+  function drawChart() {
+    cctx.clearRect(0, 0, CW, CH);
+
+    const g = cctx.createLinearGradient(0, 0, 0, CH);
+    g.addColorStop(0, 'rgba(20,31,52,0.95)');
+    g.addColorStop(1, 'rgba(11,19,32,0.95)');
+    cctx.fillStyle = g;
+    cctx.fillRect(0, 0, CW, CH);
+
+    const padL = 72, padR = 26, padT = 46, padB = 40;
+    const plotW = CW - padL - padR, plotH = CH - padT - padB;
+    const tMax = Math.max(30, Math.ceil(Math.max(state.time, 0.001) / 10) * 10);
+    const px = (t) => padL + (t / tMax) * plotW;
+    const py = (v) => CH - padB - (v / 100) * plotH;
+
+    // Raster
+    cctx.save();
+    cctx.font = '11px Segoe UI, sans-serif';
+    cctx.textAlign = 'right';
+    cctx.textBaseline = 'middle';
+    for (let v = 0; v <= 100; v += 20) {
+      const y = py(v);
+      cctx.strokeStyle = 'rgba(138,160,189,0.12)';
+      cctx.lineWidth = 1;
+      cctx.beginPath(); cctx.moveTo(padL, y); cctx.lineTo(CW - padR, y); cctx.stroke();
+      cctx.fillStyle = 'rgba(138,160,189,0.75)';
+      cctx.fillText(`${v} %`, padL - 12, y);
+    }
+
+    cctx.textAlign = 'center';
+    cctx.textBaseline = 'top';
+    const stepT = tMax <= 60 ? 10 : tMax <= 120 ? 20 : 30;
+    for (let t = 0; t <= tMax + 0.001; t += stepT) {
+      const x = px(t);
+      cctx.strokeStyle = 'rgba(138,160,189,0.10)';
+      cctx.beginPath(); cctx.moveTo(x, padT); cctx.lineTo(x, CH - padB); cctx.stroke();
+      cctx.fillStyle = 'rgba(138,160,189,0.75)';
+      cctx.fillText(`${t}`, x, CH - padB + 10);
+    }
+
+    // Achsen
+    cctx.strokeStyle = 'rgba(138,160,189,0.35)';
+    cctx.lineWidth = 1.2;
+    cctx.beginPath();
+    cctx.moveTo(padL, padT); cctx.lineTo(padL, CH - padB); cctx.lineTo(CW - padR, CH - padB);
+    cctx.stroke();
+    cctx.restore();
+
+    // Titel
+    cctx.save();
+    cctx.textAlign = 'left';
+    cctx.textBaseline = 'alphabetic';
+    cctx.fillStyle = 'rgba(230,238,248,0.92)';
+    cctx.font = '600 14px Segoe UI, sans-serif';
+    cctx.fillText('Teilchen außerhalb des Beutels', padL, 26);
+
+    cctx.font = '11px Segoe UI, sans-serif';
+    cctx.fillStyle = 'rgba(138,160,189,0.8)';
+    cctx.textAlign = 'right';
+    cctx.fillText('Zeit in s', CW - padR, CH - 8);
+
+    // Legende
+    const names = ['linkes Glas', 'rechtes Glas'];
+    const colors = ['#4fc3f7', '#ff8a65'];
+    cctx.textAlign = 'right';
+    let lx = CW - padR;
+    for (let i = 1; i >= 0; i--) {
+      cctx.fillStyle = colors[i];
+      cctx.fillRect(lx - 74, 19, 22, 3);
+      cctx.fillStyle = 'rgba(138,160,189,0.92)';
+      cctx.fillText(names[i], lx, 26);
+      lx -= 128;
+    }
+    cctx.restore();
+
+    if (state.hist.length < 2) return;
+
+    const drawSeries = (key, color) => {
+      const win = 4;
+      const vals = state.hist.map((s, i) => {
+        let sum = 0, n = 0;
+        for (let j = Math.max(0, i - win); j <= i; j++) { sum += state.hist[j][key]; n++; }
+        return sum / n;
+      });
+      cctx.save();
+      cctx.strokeStyle = color;
+      cctx.lineWidth = 2.4;
+      cctx.lineJoin = 'round';
+      cctx.shadowColor = color;
+      cctx.shadowBlur = 8;
+      cctx.beginPath();
+      vals.forEach((v, i) => {
+        const x = px(state.hist[i].t), y = py(v);
+        if (i === 0) cctx.moveTo(x, y); else cctx.lineTo(x, y);
+      });
+      cctx.stroke();
+      cctx.restore();
+    };
+
+    drawSeries('c', 'rgba(79,195,247,0.95)');
+    drawSeries('h', 'rgba(255,138,101,0.95)');
+  }
+
+  // ---------- Anzeige ----------
+  let lastReadout = 0;
+  function updateReadout(now = 0) {
+    const a = statsOf(glasses[0]);
+    const b = statsOf(glasses[1]);
+    const ratio = dRelOf(tempOf(glasses[1])) / dRelOf(tempOf(glasses[0]));
+
+    el.rTime.textContent = `${de(state.time, 1)} s`;
+    el.rOutA.textContent = `${de(a.pct, 0)} %`;
+    el.rDistA.textContent = `${de(a.distCm, 1)} cm`;
+    el.rOutB.textContent = `${de(b.pct, 0)} %`;
+    el.rDistB.textContent = `${de(b.distCm, 1)} cm`;
+    el.rRatio.textContent = `${de(ratio, 1)} ×`;
+    lastReadout = now;
+  }
+
+  function sample() {
+    if (state.time < state.nextSample) return;
+    state.nextSample = state.time + 0.25;
+    const a = statsOf(glasses[0]);
+    const b = statsOf(glasses[1]);
+    state.hist.push({ t: state.time, c: a.pct, h: b.pct });
+    if (state.hist.length > 4000) state.hist.shift();
+  }
+
+  // ---------- Steuerung ----------
+  function setPlaying(on) {
+    state.running = on;
+    el.play.textContent = on ? 'Pause' : 'Start';
+  }
+
+  el.play.addEventListener('click', () => setPlaying(!state.running));
+  el.reset.addEventListener('click', () => { resetAll(); setPlaying(true); });
+
+  el.water.addEventListener('click', () => {
+    state.water = !state.water;
+    el.water.textContent = `Wasserteilchen: ${state.water ? 'an' : 'aus'}`;
+    el.water.setAttribute('aria-pressed', String(state.water));
+  });
+
+  el.speed.addEventListener('click', () => {
+    state.speed = state.speed === 1 ? 2 : state.speed === 2 ? 4 : 1;
+    el.speed.textContent = `Zeitraffer: ${state.speed}×`;
+  });
+
+  const syncTempLabels = () => {
+    el.tColdV.textContent = `${de(tempOf(glasses[0]), 0)} °C`;
+    el.tHotV.textContent = `${de(tempOf(glasses[1]), 0)} °C`;
+    updateReadout(performance.now());
+  };
+  el.tCold.addEventListener('input', syncTempLabels);
+  el.tHot.addEventListener('input', syncTempLabels);
+
+  el.pCompare.addEventListener('click', () => {
+    el.tCold.value = 15; el.tHot.value = 75; syncTempLabels();
+  });
+  el.pSame.addEventListener('click', () => {
+    el.tCold.value = 40; el.tHot.value = 40; syncTempLabels();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && e.target === document.body) {
+      e.preventDefault();
+      setPlaying(!state.running);
+    }
+  });
+
+  // ---------- Start ----------
+  function fit(canvas, c, lw, lh) {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    c.setTransform(canvas.width / lw, 0, 0, canvas.height / lh, 0, 0);
+  }
+
+  function resizeAll() {
+    fit(cv, ctx, W, H);
+    fit(chartCv, cctx, CW, CH);
+  }
+
+  window.addEventListener('resize', resizeAll);
+  resizeAll();
+
+  resetAll();
+  syncTempLabels();
+  setPlaying(false);
+
+  let last = null;
+  function frame(now) {
+    if (last === null) last = now;
+    const dtReal = clamp((now - last) / 1000, 0, 0.05);
+    last = now;
+
+    if (state.running) {
+      const dt = dtReal * state.speed;
+      step(dt);
+      state.time += dt;
+      sample();
+    }
+
+    drawScene();
+    drawChart();
+
+    if (now - lastReadout > 120) updateReadout(now);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
